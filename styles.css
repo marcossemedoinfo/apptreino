@@ -266,7 +266,7 @@ button {
   margin: 0 auto;
   padding: 18px 22px 48px;
   display: grid;
-  grid-template-columns: minmax(340px, 47%) 1fr;
+  grid-template-columns: minmax(340px, 47%) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -275,6 +275,8 @@ button {
 .stage-column {
   position: sticky;
   top: 76px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .stage-card {
@@ -283,6 +285,8 @@ button {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .stage-header {
@@ -292,6 +296,11 @@ button {
   gap: 12px;
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.stage-header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .stage-badges {
@@ -587,6 +596,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .day-hero {
@@ -595,6 +606,8 @@ button {
   border-radius: var(--radius);
   padding: 18px 20px;
   box-shadow: var(--shadow);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .day-hero-top {
@@ -717,6 +730,8 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .section-head {
@@ -855,7 +870,8 @@ button {
 }
 
 .row-main {
-  flex: 1 1 220px;
+  flex: 1 1 180px;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -885,6 +901,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .item-name-line {
@@ -1076,6 +1094,8 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .info-card {
@@ -1086,6 +1106,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .info-card.full-span {
@@ -1258,7 +1280,7 @@ button {
 /* RESPONSIVE ADAPTATIVO POR APARELHO */
 @media (max-width: 1080px) {
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -1275,7 +1297,7 @@ button {
 @media (max-width: 768px) {
   .topbar {
     position: static;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
     gap: 8px;
   }
 
@@ -1300,8 +1322,8 @@ button {
   }
 
   .profile-btn {
-    padding: 5px 10px;
-    font-size: 0.78rem;
+    padding: 5px 9px;
+    font-size: 0.76rem;
   }
 
   .week-label {
@@ -1309,13 +1331,13 @@ button {
   }
 
   .week-btn {
-    padding: 5px 8px;
-    font-size: 0.74rem;
+    padding: 5px 7px;
+    font-size: 0.73rem;
   }
 
   .icon-btn {
-    padding: 6px 10px;
-    font-size: 0.8rem;
+    padding: 6px 9px;
+    font-size: 0.78rem;
   }
 
   .day-nav {
@@ -1325,21 +1347,20 @@ button {
   }
 
   .day-tab {
-    min-width: 104px;
+    min-width: 100px;
     padding: 7px 10px;
     border-radius: 10px;
   }
 
   .day-tab-focus {
-    font-size: 0.79rem;
+    font-size: 0.78rem;
   }
 
   .workspace {
-    padding: 10px 12px calc(28px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px));
     gap: 12px;
   }
 
-  /* Palco 3D fixo no topo da tela ao rolar pelos exercícios */
   .stage-column {
     position: sticky;
     top: env(safe-area-inset-top, 0px);
@@ -1370,8 +1391,9 @@ button {
   }
 
   .stage-header h2 {
-    font-size: 1.02rem;
+    font-size: 1.0rem;
     line-height: 1.2;
+    word-break: break-word;
   }
 
   .show-mobile {
@@ -1413,14 +1435,13 @@ button {
     left: 8px;
     font-size: 0.68rem;
     padding: 4px 8px;
-    max-width: 82%;
+    max-width: 86%;
   }
 
   .canvas-hint {
     display: none;
   }
 
-  /* Barra 3D compacta em 1 única linha rolável */
   .viewport-toolbar {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -1457,14 +1478,13 @@ button {
     font-size: 0.8rem;
   }
 
-  /* Painel do dia & linhas de treino otimizadas para toque */
   .day-hero {
-    padding: 12px 14px;
+    padding: 12px;
     border-radius: 14px;
   }
 
   .day-hero h2 {
-    font-size: 1.1rem;
+    font-size: 1.08rem;
   }
 
   .day-hero-actions {
@@ -1476,12 +1496,13 @@ button {
   }
 
   .day-metrics {
-    grid-template-columns: 1fr 112px;
+    grid-template-columns: minmax(0, 1fr) 104px;
     gap: 8px;
   }
 
   .metric-box {
     padding: 8px 10px;
+    min-width: 0;
   }
 
   .metric-box.compact {
@@ -1506,47 +1527,81 @@ button {
     margin-left: 0;
     width: 100%;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
+  /* Grid estrito: coluna esquerda encolhe o texto se precisar; coluna direita (cronômetro) NUNCA corta */
   .workout-row {
-    padding: 11px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 10px;
     gap: 8px;
   }
 
+  .row-main {
+    min-width: 0;
+    gap: 9px;
+  }
+
   .check-btn {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 8px;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
   }
 
   .item-name {
-    font-size: 0.9rem;
+    font-size: 0.86rem;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .item-rx {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+  }
+
+  .item-sub {
+    font-size: 0.72rem;
+    line-height: 1.25;
   }
 
   .row-controls {
-    width: 100%;
-    justify-content: flex-end;
-    padding-left: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
   }
 
   .inline-timer {
-    padding: 4px 6px 4px 10px;
+    padding: 3px 5px 3px 8px;
+    gap: 4px;
+  }
+
+  .timer-readout {
+    font-size: 0.84rem;
+    min-width: 40px;
   }
 
   .timer-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 0.86rem;
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
   }
 
   .side-chip {
-    padding: 6px 10px;
-    font-size: 0.76rem;
+    padding: 4px 8px;
+    font-size: 0.71rem;
   }
 
   .overview-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tips-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hide-sm {
@@ -1554,7 +1609,7 @@ button {
   }
 
   .toast {
-    width: calc(100% - 28px);
+    width: calc(100% - 24px);
     text-align: center;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     font-size: 0.82rem;
@@ -1567,7 +1622,7 @@ html[data-device="compact-mobile"] .brand-sub {
 }
 
 html[data-device="compact-mobile"] .day-metrics {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 html[data-device="compact-mobile"] .metric-box.compact {
@@ -1578,36 +1633,136 @@ html[data-device="compact-mobile"] .metric-box.compact {
   justify-content: space-between;
 }
 
-html[data-device="compact-mobile"] .row-controls {
-  padding-left: 0;
-  justify-content: space-between;
-}
-
-/* Celular na horizontal (Paisagem): 3D à esquerda + lista rolável à direita */
+/* Celular na horizontal (Paisagem): funciona independente da largura (667px..932px) */
 html[data-mobile-landscape="1"] .topbar {
   position: static;
-  padding: 6px 14px;
+  padding: 6px 12px;
+  gap: 6px;
+}
+
+html[data-mobile-landscape="1"] .brand-sub,
+html[data-mobile-landscape="1"] .week-label,
+html[data-mobile-landscape="1"] .hide-sm,
+html[data-mobile-landscape="1"] .canvas-hint {
+  display: none;
 }
 
 html[data-mobile-landscape="1"] .day-nav {
-  padding: 6px 14px;
+  padding: 6px 12px;
+  gap: 6px;
+}
+
+html[data-mobile-landscape="1"] .day-tab {
+  min-width: 96px;
+  padding: 6px 9px;
 }
 
 html[data-mobile-landscape="1"] .workspace {
-  grid-template-columns: minmax(250px, 44%) 1fr;
-  gap: 12px;
-  padding: 8px 14px 20px;
+  grid-template-columns: minmax(210px, 41%) minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 12px 24px;
 }
 
 html[data-mobile-landscape="1"] .stage-column {
   position: sticky;
-  top: 8px;
+  top: 6px;
+  z-index: 30;
+}
+
+html[data-mobile-landscape="1"] .stage-header {
+  padding: 8px 10px;
+  gap: 6px;
+}
+
+html[data-mobile-landscape="1"] .stage-header h2 {
+  font-size: 0.94rem;
+}
+
+html[data-mobile-landscape="1"] .show-mobile {
+  display: inline-flex;
+  align-items: center;
+}
+
+html[data-mobile-landscape="1"] .mobile-collapsed {
+  display: none !important;
 }
 
 html[data-mobile-landscape="1"] .canvas-wrapper {
-  height: var(--mobile-stage-h, 210px);
+  height: var(--mobile-stage-h, 200px);
 }
 
-html[data-mobile-landscape="1"] .coaching-box {
+html[data-mobile-landscape="1"] .viewport-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 6px 8px;
+}
+
+html[data-mobile-landscape="1"] .viewport-toolbar::-webkit-scrollbar {
   display: none;
+}
+
+html[data-mobile-landscape="1"] .cam-group,
+html[data-mobile-landscape="1"] .playback-group {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+html[data-mobile-landscape="1"] .day-hero {
+  padding: 10px 12px;
+}
+
+html[data-mobile-landscape="1"] .day-hero h2 {
+  font-size: 1.02rem;
+}
+
+html[data-mobile-landscape="1"] .day-metrics {
+  grid-template-columns: minmax(0, 1fr) 105px;
+  gap: 8px;
+}
+
+html[data-mobile-landscape="1"] .workout-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 9px 10px;
+  gap: 8px;
+}
+
+html[data-mobile-landscape="1"] .row-main {
+  min-width: 0;
+  gap: 8px;
+}
+
+html[data-mobile-landscape="1"] .item-name {
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+html[data-mobile-landscape="1"] .row-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+html[data-mobile-landscape="1"] .inline-timer {
+  padding: 3px 5px 3px 8px;
+  gap: 4px;
+}
+
+html[data-mobile-landscape="1"] .timer-readout {
+  font-size: 0.84rem;
+  min-width: 40px;
+}
+
+html[data-mobile-landscape="1"] .timer-btn {
+  width: 28px;
+  height: 28px;
+}
+
+html[data-mobile-landscape="1"] .overview-grid,
+html[data-mobile-landscape="1"] .tips-list {
+  grid-template-columns: minmax(0, 1fr);
 }

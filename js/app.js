@@ -124,8 +124,9 @@ class AppTreino {
       }
       rootEl.style.setProperty('--mobile-stage-h', `${stageH}px`);
 
-      // Em telas desktop/tablet mostra dicas sempre; no celular começa recolhido para sobrar mais lista
-      if (w > 768) {
+      // Em telas desktop/tablet mostra dicas sempre; no celular (retrato ou paisagem) começa recolhido
+      const isCompactScreen = w <= 768 || rootEl.dataset.mobileLandscape === '1';
+      if (!isCompactScreen) {
         this.dom.coachingBox?.classList.remove('mobile-collapsed');
         this.dom.stageBody3d?.classList.remove('mobile-collapsed');
       } else {
@@ -759,7 +760,8 @@ class AppTreino {
     if (!item) return;
 
     this.selectedItemKey = key;
-    if (!this.mobile3dOpen && window.innerWidth <= 768) {
+    const isCompactScreen = window.innerWidth <= 768 || document.documentElement.dataset.mobileLandscape === '1';
+    if (!this.mobile3dOpen && isCompactScreen) {
       this.mobile3dOpen = true;
       this.dom.stageBody3d?.classList.remove('mobile-collapsed');
       if (this.dom.btnToggle3d) {
