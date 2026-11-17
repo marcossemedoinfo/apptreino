@@ -503,15 +503,15 @@ export const EXERCISE_CATALOG = {
     category: 'alongamento',
     anim: 'seated_glute_hug',
     prop: 'mat',
-    defaultCamera: 'threeQuarter',
+    defaultCamera: 'side',
     muscles: ['glutes', 'hips'],
     musclesLabel: 'Glúteos e Região Lombar',
     steps: [
-      'Sente-se no tapete com os joelhos dobrados e os pés apoiados.',
-      'Abrace as pernas trazendo os joelhos suavemente em direção ao peito mantendo a coluna alinhada.',
-      'Segure por 20 a 30 segundos respirando devagar.'
+      'Sente-se no tapete com uma perna estendida à frente e cruze a outra com o joelho dobrado próximo ao peito.',
+      'Com o braço oposto, abrace o joelho puxando-o suavemente em direção ao tronco enquanto a outra mão apoia atrás no tapete.',
+      'Segure por 20 a 30 segundos em cada perna respirando devagar.'
     ],
-    tip: 'Mantenha os ombros relaxados longe das orelhas.'
+    tip: 'Mantenha a coluna alongada sem tensionar os ombros e apoie bem os ísquios no tapete.'
   },
   wall_calf_stretch: {
     id: 'wall_calf_stretch',

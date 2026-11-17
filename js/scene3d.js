@@ -103,6 +103,24 @@ function solveArm2BoneIK(dz, dy, seg, torsoPitchX = 0) {
   return { armRx, foreRx: elbowBend };
 }
 
+const _downAxis = new THREE.Vector3(0, -1, 0);
+const _aimTarget = new THREE.Vector3();
+const _aimQuat = new THREE.Quaternion();
+const _twistQuat = new THREE.Quaternion();
+const _aimEuler = new THREE.Euler();
+
+// Converte uma direção anatômica desejada (dx, dy, dz) partindo de (0, -1, 0) + torção axial para Euler XYZ
+function eulerAimDown(dx, dy, dz, twist = 0) {
+  _aimTarget.set(dx, dy, dz).normalize();
+  _aimQuat.setFromUnitVectors(_downAxis, _aimTarget);
+  if (twist) {
+    _twistQuat.setFromAxisAngle(_downAxis, twist);
+    _aimQuat.multiply(_twistQuat);
+  }
+  _aimEuler.setFromQuaternion(_aimQuat, 'XYZ');
+  return [_aimEuler.x, _aimEuler.y, _aimEuler.z];
+}
+
 export class WorkoutScene3D {
   constructor(container, { onPhaseChange, onModelStatus } = {}) {
     this.container = container;
@@ -696,6 +714,7 @@ export class WorkoutScene3D {
       sideElbowL: addWorldMarker('LeftArm', new THREE.Vector3(pLFore.x + 0.032, pLFore.y, pLFore.z)),
       sideElbowR: addWorldMarker('RightArm', new THREE.Vector3(pRFore.x - 0.032, pRFore.y, pRFore.z)),
       backPelvis: addWorldMarker('Hips', new THREE.Vector3(0, pHips.y, pHips.z - 0.105)),
+      sitPelvis: addWorldMarker('Hips', new THREE.Vector3(0, pHips.y - 0.108, pHips.z)),
       backChest: addWorldMarker('Spine2', new THREE.Vector3(0, pSpine2.y + 0.06, pSpine2.z - 0.115)),
       sideAnkleL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x + 0.045, SOLE_Y + 0.028, pLFoot.z + 0.02)),
       sideAnkleR: addWorldMarker('RightFoot', new THREE.Vector3(pRFoot.x - 0.045, SOLE_Y + 0.028, pRFoot.z + 0.02))
@@ -1620,57 +1639,86 @@ export class WorkoutScene3D {
       }
 
       case 'seated_hamstring_stretch': {
-        // Sentada no tapete com 1 perna estendida à frente e outra dobrada para dentro
+        // Sentada no tapete com glúteos apoiados, 1 perna estendida plana e a outra dobrada lateralmente no tapete
         const pulse = 0.03 * breath;
         const extUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const extKnee = isLeft ? 'LeftLeg' : 'RightLeg';
         const extFoot = isLeft ? 'LeftFoot' : 'RightFoot';
         const bentUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
         const bentKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const bentFoot = isLeft ? 'RightFoot' : 'LeftFoot';
+        const bentX = -sgn; // Perna dobrada é a oposta à estendida
 
-        pose[extUp] = [-Math.PI / 2, 0, 0];
-        pose[extKnee] = [0.04, 0, 0];
-        pose[extFoot] = [-0.35, 0, 0];
+        // Quadril levemente flexionado à frente; perna estendida compensa para repousar rente ao tapete
+        pose.Hips = [0.22, 0, 0];
+        pose[extUp] = [-1.68, 0, 0];
+        pose[extKnee] = [0.03, 0, 0];
+        pose[extFoot] = [-0.28, 0, 0];
 
-        pose[bentUp] = [-1.42, -sgn * 0.45, -sgn * 0.55];
-        pose[bentKnee] = [1.95, 0, 0];
+        // Perna dobrada abre horizontalmente no tapete e gira o joelho para fora (sem apontar para baixo)
+        pose[bentUp] = eulerAimDown(bentX * 0.72, -0.02, 0.69, -bentX * 1.42);
+        pose[bentKnee] = [1.85, 0, 0];
+        pose[bentFoot] = [0.25, 0, 0];
 
-        setSpineCurve(0.56 + pulse, 0, 0, -0.25);
-        pose.LeftArm = [-1.45, 0, -0.06];
-        pose.RightArm = [-1.45, 0, 0.06];
+        setSpineCurve(0.68 + pulse, 0, 0, -0.32);
+        pose.LeftArm = [-1.42 - pulse * 0.6, 0, sgn > 0 ? 0.02 : -0.08];
+        pose.RightArm = [-1.42 - pulse * 0.6, 0, sgn > 0 ? 0.08 : -0.02];
         pose.LeftForeArm = [-0.08, 0, 0];
         pose.RightForeArm = [-0.08, 0, 0];
         supportY = MAT_TOP_Y;
-        supportMarkers = [this.markers.backPelvis, this.markers.heelL, this.markers.heelR];
+        const extHeel = isLeft ? this.markers.heelL : this.markers.heelR;
+        supportMarkers = [this.markers.sitPelvis, extHeel];
         this.emitPhaseCue('Sentada no tapete • Alcance o pé da perna estendida');
         break;
       }
 
       case 'seated_glute_hug': {
-        // Sentada no tapete abraçando os dois joelhos junto ao peito
-        const pulse = 0.025 * breath;
-        pose.Hips = [-0.14, 0, 0];
-        pose.LeftUpLeg = [-2.02 - pulse, 0, 0.08];
-        pose.RightUpLeg = [-2.02 - pulse, 0, -0.08];
-        pose.LeftLeg = [1.98, 0, 0];
-        pose.RightLeg = [1.98, 0, 0];
-        pose.LeftFoot = [0.18, 0, 0];
-        pose.RightFoot = [0.18, 0, 0];
+        // Sentada no tapete: 1 perna estendida plana, outra dobrada cruzada próxima ao peito; braço oposto abraça o joelho, outro apoia atrás no tapete
+        const pulse = 0.02 * breath;
+        const bentUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
+        const bentKnee = isLeft ? 'LeftLeg' : 'RightLeg';
+        const bentFoot = isLeft ? 'LeftFoot' : 'RightFoot';
+        const extUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
+        const extKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const extFoot = isLeft ? 'RightFoot' : 'LeftFoot';
+        const supArm = isLeft ? 'LeftArm' : 'RightArm';
+        const supFore = isLeft ? 'LeftForeArm' : 'RightForeArm';
+        const supHand = isLeft ? 'LeftHand' : 'RightHand';
+        const hugArm = isLeft ? 'RightArm' : 'LeftArm';
+        const hugFore = isLeft ? 'RightForeArm' : 'LeftForeArm';
+        const hugHand = isLeft ? 'RightHand' : 'LeftHand';
 
-        setSpineCurve(0.18, 0, 0, -0.1);
-        pose.LeftArm = [-0.95, 0, 0.14];
-        pose.RightArm = [-0.95, 0, -0.14];
-        pose.LeftForeArm = [-1.15, 0, -0.62];
-        pose.RightForeArm = [-1.15, 0, 0.62];
+        pose.Hips = [-0.10, 0, 0];
+        // Perna estendida repousa rente ao tapete
+        pose[extUp] = [-1.42, 0, -sgn * 0.05];
+        pose[extKnee] = [0.03, 0, 0];
+        pose[extFoot] = [-0.28, 0, 0];
+
+        // Perna dobrada puxada para cima e cruzada perto do tronco; pé pousa sem afundar
+        pose[bentUp] = [-2.12 - pulse, 0, -sgn * 0.28];
+        pose[bentKnee] = [2.14, 0, 0];
+        pose[bentFoot] = [0.22, 0, 0];
+
+        setSpineCurve(0.14, -sgn * 0.24, 0, -0.06);
+        // Braço oposto abraça firmemente ao redor da frente do joelho dobrado
+        pose[hugArm] = eulerAimDown(-sgn * 0.42, -0.64, 0.64, -sgn * 0.85);
+        pose[hugFore] = [-1.46, 0, 0];
+        pose[hugHand] = [-0.20, 0, 0];
+        // Braço do mesmo lado apoia com a mão atrás no tapete
+        pose[supArm] = eulerAimDown(sgn * 0.26, -0.80, -0.54);
+        pose[supFore] = [-0.08, 0, 0];
+        pose[supHand] = [0.76, 0, 0];
+
         supportY = MAT_TOP_Y;
-        supportMarkers = [this.markers.backPelvis, this.markers.heelL, this.markers.heelR];
-        this.emitPhaseCue('Sentada no tapete • Abrace os joelhos suavemente');
+        const extHeel = isLeft ? this.markers.heelR : this.markers.heelL;
+        supportMarkers = [this.markers.sitPelvis, extHeel];
+        this.emitPhaseCue(isLeft ? 'Glúteo esquerdo • Abrace o joelho com o braço oposto' : 'Glúteo direito • Abrace o joelho com o braço oposto');
         break;
       }
 
       case 'wall_calf_stretch': {
-        // Alongamento de panturrilha apoiando as duas mãos na parede à frente
-        const pulse = 0.02 * breath;
+        // Alongamento de panturrilha na parede: mãos apoiadas na parede, corpo inclinado à frente, perna da frente dobrada e a de trás bem esticada com calcanhar no chão
+        const pulse = 0.015 * smooth01(1.3);
         const bUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const bKnee = isLeft ? 'LeftLeg' : 'RightLeg';
         const bFoot = isLeft ? 'LeftFoot' : 'RightFoot';
@@ -1678,40 +1726,73 @@ export class WorkoutScene3D {
         const fKnee = isLeft ? 'RightLeg' : 'LeftLeg';
         const fFoot = isLeft ? 'RightFoot' : 'LeftFoot';
 
-        this.charRoot.position.z = 0.14;
-        pose[fUp] = [-0.62 - pulse, 0, 0];
-        pose[fKnee] = [0.85 + pulse, 0, 0];
-        pose[fFoot] = [-0.23, 0, 0];
-        pose[bUp] = [0.42, 0, 0];
-        pose[bKnee] = [0.04, 0, 0];
-        pose[bFoot] = [-0.46, 0, 0];
+        const leanHips = 0.34;
+        const spineLean = 0.14 + pulse;
+        const torsoLean = leanHips + spineLean;
+        const backLegPitch = 0.50; // Perna de trás esticada inclinada para trás ~29°
+        const legLen = this.seg.thigh + this.seg.shin;
+        const backAnkleZ = -0.28;
 
-        setSpineCurve(0.16, 0, 0, -0.12);
-        const armIK = solveArm2BoneIK(0.42, -0.06, this.seg, 0.16);
-        pose.LeftArm = [armIK.armRx, 0, 0.06];
-        pose.RightArm = [armIK.armRx, 0, -0.06];
+        const hjZ = backAnkleZ + legLen * Math.sin(backLegPitch);
+        const hjY = this.seg.footH + legLen * Math.cos(backLegPitch);
+        const rotHipsToHipZ = this.seg.hipsToHipY * Math.sin(leanHips) + this.seg.hipsToHipZ * Math.cos(leanHips);
+        const rotHipsToHipY = this.seg.hipsToHipY * Math.cos(leanHips) - this.seg.hipsToHipZ * Math.sin(leanHips);
+        const hipsWorldZ = hjZ - rotHipsToHipZ;
+        const hipsWorldY = hjY - rotHipsToHipY;
+
+        this.charRoot.position.z = hipsWorldZ - this.hipsRestPos.z;
+        this.charRoot.position.y = hipsWorldY - this.hipsRestPos.y;
+        useSnap = false;
+
+        pose.Hips = [leanHips, 0, 0];
+        // Perna de trás esticada com calcanhar firme no chão
+        pose[bUp] = [backLegPitch - leanHips, 0, sgn * 0.04];
+        pose[bKnee] = [0.03, 0, 0];
+        pose[bFoot] = [-(backLegPitch + 0.03), 0, 0];
+
+        // Perna da frente dobrada com o pé plantado próximo à parede
+        const fIK = solveLeg2BoneIK(0.32 + pulse - hjZ, this.seg.footH - hjY, this.seg, leanHips);
+        pose[fUp] = [fIK.hipRx, 0, -sgn * 0.05];
+        pose[fKnee] = [fIK.kneeRx, 0, 0];
+        pose[fFoot] = [fIK.footRx, 0, 0];
+
+        setSpineCurve(spineLean, 0, 0, -0.34);
+
+        const shZ = hipsWorldZ + this.seg.hipsToShY * Math.sin(torsoLean) + this.seg.hipsToShZ * Math.cos(torsoLean);
+        const shY = hipsWorldY + this.seg.hipsToShY * Math.cos(torsoLean) - this.seg.hipsToShZ * Math.sin(torsoLean);
+        const armIK = solveArm2BoneIK(0.658 - shZ, 1.30 - shY, this.seg, torsoLean);
+        pose.LeftArm = [armIK.armRx, 0, 0.07];
+        pose.RightArm = [armIK.armRx, 0, -0.07];
         pose.LeftForeArm = [armIK.foreRx, -1.1, 0];
         pose.RightForeArm = [armIK.foreRx, 1.1, 0];
-        pose.LeftHand = [-0.65, 0, 0];
-        pose.RightHand = [-0.65, 0, 0];
-        this.emitPhaseCue('Mãos na parede • Calcanhar de trás firme no chão');
+        pose.LeftHand = [-0.72, 0, 0];
+        pose.RightHand = [-0.72, 0, 0];
+        this.emitPhaseCue(isLeft ? 'Panturrilha esquerda • Perna de trás esticada e calcanhar no chão' : 'Panturrilha direita • Perna de trás esticada e calcanhar no chão');
         break;
       }
 
       case 'shoulder_cross_stretch': {
+        // Em pé: 1 braço estendido cruza horizontalmente à frente do peito; o outro segura/puxa pelo cotovelo/antebraço
         const pulse = 0.025 * breath;
+        const sh = isLeft ? 'LeftShoulder' : 'RightShoulder';
         const arm = isLeft ? 'LeftArm' : 'RightArm';
         const fore = isLeft ? 'LeftForeArm' : 'RightForeArm';
         const oppArm = isLeft ? 'RightArm' : 'LeftArm';
         const oppFore = isLeft ? 'RightForeArm' : 'LeftForeArm';
+        const oppHand = isLeft ? 'RightHand' : 'LeftHand';
 
-        // Braço cruza horizontalmente na frente do peito; outro braço puxa suavemente pelo cotovelo
-        pose[arm] = [-1.45, sgn * (0.98 + pulse), 0];
-        pose[fore] = [-0.08, 0, 0];
-        pose[oppArm] = [-0.92, -sgn * 0.25, -sgn * 0.18];
-        pose[oppFore] = [-1.32, 0, sgn * 0.45];
-        pose.LeftUpLeg = [0, 0, 0.06];
-        pose.RightUpLeg = [0, 0, -0.06];
+        // Protai a escápula para frente para o braço passar limpo à frente do peito sem entrar no tórax
+        pose[sh] = [0, -sgn * 0.28, 0];
+        pose[arm] = eulerAimDown(-sgn * 0.84, -0.06, 0.54 + pulse, sgn * 0.18);
+        pose[fore] = [-0.06, 0, 0];
+
+        // Braço oposto desce à frente do tórax e dobra verticalmente segurando próximo ao cotovelo
+        pose[oppArm] = eulerAimDown(sgn * 0.16, -0.82, 0.54, sgn * 0.22);
+        pose[oppFore] = [-1.46, 0, -sgn * 0.22];
+        pose[oppHand] = [0.15, sgn * 0.42, 0];
+
+        pose.LeftUpLeg = [0, 0, 0.05];
+        pose.RightUpLeg = [0, 0, -0.05];
         setSpineCurve(0, 0, 0, 0);
         this.emitPhaseCue(isLeft ? 'Alongue o ombro esquerdo' : 'Alongue o ombro direito');
         break;
