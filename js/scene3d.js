@@ -1674,40 +1674,31 @@ export class WorkoutScene3D {
 
       case 'seated_glute_hug': {
         // Sentada no tapete: 1 perna estendida plana, outra dobrada cruzada próxima ao peito; braço oposto abraça o joelho, outro apoia atrás no tapete
-        const pulse = 0.02 * breath;
+        const pulse = 0.018 * breath;
         const bentUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const bentKnee = isLeft ? 'LeftLeg' : 'RightLeg';
         const bentFoot = isLeft ? 'LeftFoot' : 'RightFoot';
         const extUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
         const extKnee = isLeft ? 'RightLeg' : 'LeftLeg';
         const extFoot = isLeft ? 'RightFoot' : 'LeftFoot';
-        const supArm = isLeft ? 'LeftArm' : 'RightArm';
-        const supFore = isLeft ? 'LeftForeArm' : 'RightForeArm';
         const supHand = isLeft ? 'LeftHand' : 'RightHand';
-        const hugArm = isLeft ? 'RightArm' : 'LeftArm';
-        const hugFore = isLeft ? 'RightForeArm' : 'LeftForeArm';
         const hugHand = isLeft ? 'RightHand' : 'LeftHand';
 
-        pose.Hips = [-0.10, 0, 0];
-        // Perna estendida repousa rente ao tapete
-        pose[extUp] = [-1.42, 0, -sgn * 0.05];
+        pose.Hips = [-0.20, 0, 0];
+        // Perna estendida repousa reta no tapete com ponta do pé para cima
+        pose[extUp] = [-1.34, 0, -sgn * 0.06];
         pose[extKnee] = [0.03, 0, 0];
-        pose[extFoot] = [-0.28, 0, 0];
+        pose[extFoot] = [-0.30, 0, 0];
 
-        // Perna dobrada puxada para cima e cruzada perto do tronco; pé pousa sem afundar
-        pose[bentUp] = [-2.12 - pulse, 0, -sgn * 0.28];
-        pose[bentKnee] = [2.14, 0, 0];
-        pose[bentFoot] = [0.22, 0, 0];
+        // Perna dobrada bem puxada em direção ao peito, cruzando sobre a linha média e com o tênis pousado acima do tapete (sem afundar)
+        pose[bentUp] = [-2.36 - pulse, 0, -sgn * 0.38];
+        pose[bentKnee] = [2.14 + pulse, 0, 0];
+        pose[bentFoot] = [-0.04, 0, 0];
 
-        setSpineCurve(0.14, -sgn * 0.24, 0, -0.06);
-        // Braço oposto abraça firmemente ao redor da frente do joelho dobrado
-        pose[hugArm] = eulerAimDown(-sgn * 0.42, -0.64, 0.64, -sgn * 0.85);
-        pose[hugFore] = [-1.46, 0, 0];
-        pose[hugHand] = [-0.20, 0, 0];
-        // Braço do mesmo lado apoia com a mão atrás no tapete
-        pose[supArm] = eulerAimDown(sgn * 0.26, -0.80, -0.54);
-        pose[supFore] = [-0.08, 0, 0];
-        pose[supHand] = [0.76, 0, 0];
+        setSpineCurve(0.06, -sgn * 0.20, 0, -0.04);
+        // Braços serão resolvidos exatamente via IK 3D após snapToSupport (mão abraçando joelho e palma apoiada atrás no tapete)
+        pose[hugHand] = [0.12, 0, sgn * 0.22];
+        pose[supHand] = [-0.68, 0, 0];
 
         supportY = MAT_TOP_Y;
         const extHeel = isLeft ? this.markers.heelR : this.markers.heelL;
@@ -1858,6 +1849,34 @@ export class WorkoutScene3D {
       this.charRoot.updateMatrixWorld(true);
     }
 
+    // IK 3D exato para o alongamento de Glúteos: mão oposta envolve o joelho levantado e mão traseira apoia no tapete
+    if (this.animId === 'seated_glute_hug') {
+      const bentKneeMarker = isLeft ? this.markers.kneeL : this.markers.kneeR;
+      const hugSide = isLeft ? 'Right' : 'Left';
+      const supSide = isLeft ? 'Left' : 'Right';
+      if (bentKneeMarker && this.markers.sitPelvis) {
+        const kneePos = new THREE.Vector3();
+        bentKneeMarker.getWorldPosition(kneePos);
+        const hugTarget = new THREE.Vector3(
+          kneePos.x - sgn * 0.055,
+          kneePos.y - 0.035,
+          kneePos.z + 0.025
+        );
+        const hugPole = new THREE.Vector3(-sgn * 0.9, -0.35, 0.35);
+        this.solveArmWorldIK(hugSide, hugTarget, hugPole, smoothBlend);
+
+        const pelvPos = new THREE.Vector3();
+        this.markers.sitPelvis.getWorldPosition(pelvPos);
+        const supTarget = new THREE.Vector3(
+          pelvPos.x + sgn * 0.22,
+          MAT_TOP_Y + 0.068,
+          pelvPos.z - 0.24
+        );
+        const supPole = new THREE.Vector3(sgn * 0.35, 0.15, -0.92);
+        this.solveArmWorldIK(supSide, supTarget, supPole, smoothBlend);
+      }
+    }
+
     // Posiciona o pilar exatamente encostado na palma da mão durante Alongamento Peitoral
     if (this.animId === 'chest_stretch' && this.propPost.visible) {
       const palmMarker = isLeft ? this.markers.handL : this.markers.handR;
@@ -1866,6 +1885,92 @@ export class WorkoutScene3D {
         this.propPost.position.set(this._vTmp2.x + sgn * 0.068, 0, this._vTmp2.z);
       }
     }
+  }
+
+  solveArmWorldIK(side, targetWorld, poleDirWorld, smoothBlend = 1) {
+    const shName = `${side}Shoulder`;
+    const armName = `${side}Arm`;
+    const foreName = `${side}ForeArm`;
+    const handName = `${side}Hand`;
+    const shBone = this.bones[shName];
+    const armBone = this.bones[armName];
+    const foreBone = this.bones[foreName];
+    const handBone = this.bones[handName];
+    if (!shBone || !armBone || !foreBone || !handBone) return;
+
+    const pSh = new THREE.Vector3();
+    const pEl = new THREE.Vector3();
+    const pWr = new THREE.Vector3();
+    const qShWorld = new THREE.Quaternion();
+    const qArmBaseWorld = new THREE.Quaternion();
+    shBone.getWorldQuaternion(qShWorld);
+
+    // Reseta para pose neutra local do ombro para medir comprimentos e orientação base sem interferência do slerp
+    armBone.quaternion.copy(qShWorld).invert().multiply(
+      qShWorld.clone().multiply(this.neutralWorldQ[shName].clone().invert()).multiply(this.neutralWorldQ[armName])
+    );
+    foreBone.quaternion.copy(this.neutralWorldQ[armName]).invert().multiply(this.neutralWorldQ[foreName]);
+    armBone.updateMatrixWorld(true);
+
+    armBone.getWorldPosition(pSh);
+    foreBone.getWorldPosition(pEl);
+    handBone.getWorldPosition(pWr);
+    const l1 = pSh.distanceTo(pEl);
+    const l2 = pEl.distanceTo(pWr);
+    const dist = Math.max(0.14, Math.min(l1 + l2 - 0.008, pSh.distanceTo(targetWorld)));
+
+    const cosBend = Math.max(-1, Math.min(1, (l1 * l1 + l2 * l2 - dist * dist) / (2 * l1 * l2)));
+    const elbowBend = Math.max(0.06, Math.PI - Math.acos(cosBend));
+
+    // Aplica flexão exata na dobradiça natural do cotovelo
+    const qBend = new THREE.Quaternion().setFromEuler(new THREE.Euler(-elbowBend, 0, 0, 'XYZ'));
+    const qForeTargetLocal = this.neutralWorldQ[armName].clone().invert().multiply(qBend).multiply(this.neutralWorldQ[foreName]);
+    foreBone.quaternion.copy(qForeTargetLocal);
+    armBone.updateMatrixWorld(true);
+
+    armBone.getWorldPosition(pSh);
+    foreBone.getWorldPosition(pEl);
+    handBone.getWorldPosition(pWr);
+
+    const xA = pEl.clone().sub(pSh).normalize();
+    const fA = pWr.clone().sub(pEl);
+    const zA = new THREE.Vector3().crossVectors(xA, fA);
+    if (zA.lengthSq() < 1e-6) zA.set(1, 0, 0);
+    zA.normalize();
+    const yA = new THREE.Vector3().crossVectors(zA, xA).normalize();
+
+    const u = targetWorld.clone().sub(pSh).normalize();
+    const polePerp = poleDirWorld.clone().addScaledVector(u, -poleDirWorld.dot(u));
+    if (polePerp.lengthSq() < 1e-6) polePerp.set(0, -1, 0);
+    polePerp.normalize();
+
+    const cosA = Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist)));
+    const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+    const xB = u.clone().multiplyScalar(cosA).addScaledVector(polePerp, sinA).normalize();
+    const pElB = pSh.clone().addScaledVector(xB, l1);
+    const fB = targetWorld.clone().sub(pElB);
+    const zB = new THREE.Vector3().crossVectors(xB, fB);
+    if (zB.lengthSq() < 1e-6) zB.set(1, 0, 0);
+    zB.normalize();
+    const yB = new THREE.Vector3().crossVectors(zB, xB).normalize();
+
+    const mA = new THREE.Matrix4().makeBasis(xA, yA, zA);
+    const mB = new THREE.Matrix4().makeBasis(xB, yB, zB);
+    const mRot = mB.multiply(mA.transpose());
+    const qDelta = new THREE.Quaternion().setFromRotationMatrix(mRot);
+
+    armBone.getWorldQuaternion(qArmBaseWorld);
+    const qArmTargetWorld = qDelta.multiply(qArmBaseWorld);
+    const qArmTargetLocal = qShWorld.clone().invert().multiply(qArmTargetWorld);
+
+    if (smoothBlend < 1 && this.prevBoneLocalQ[armName] && this.prevBoneLocalQ[foreName]) {
+      armBone.quaternion.copy(this.prevBoneLocalQ[armName]).slerp(qArmTargetLocal, smoothBlend);
+      foreBone.quaternion.copy(this.prevBoneLocalQ[foreName]).slerp(qForeTargetLocal, smoothBlend);
+    } else {
+      armBone.quaternion.copy(qArmTargetLocal);
+      foreBone.quaternion.copy(qForeTargetLocal);
+    }
+    armBone.updateMatrixWorld(true);
   }
 
   animate() {

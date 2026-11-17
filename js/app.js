@@ -1,7 +1,7 @@
-import { EXERCISE_CATALOG, PROFILES } from './data.js?v=1.6';
-import { sound } from './audio.js?v=1.6';
-import { TimerManager, formatStopwatch } from './timers.js?v=1.6';
-import { WorkoutScene3D } from './scene3d.js?v=1.6';
+import { EXERCISE_CATALOG, PROFILES } from './data.js?v=1.7';
+import { sound } from './audio.js?v=1.7';
+import { TimerManager, formatStopwatch } from './timers.js?v=1.7';
+import { WorkoutScene3D } from './scene3d.js?v=1.7';
 
 const CATEGORY_LABELS = {
   aquecimento: 'Aquecimento Dinâmico',
