@@ -18,18 +18,23 @@ const TREADMILL_BELT_Y = 0.150;
 const BENCH_TOP_Y = 0.380;
 const SOLE_Y = 0.000;
 
-// Comprimentos anatômicos reais extraídos de personal_trainer.glb
-const SEG = {
-  thigh: 0.3384,
-  shin: 0.4333,
-  footH: 0.0689,
-  hipsToHipY: -0.1127,
-  hipsToHipZ: 0.0670,
-  hipX: 0.0839,
-  hipsToShY: 0.4374,
-  hipsToShZ: 0.0214,
-  upperArm: 0.2667,
-  forearm: 0.2276
+// Valores padrão iniciais; medidos dinamicamente do esqueleto real em setupTrainerRig()
+const DEFAULT_SEG = {
+  thigh: 0.4133,
+  shin: 0.4022,
+  footH: 0.1146,
+  footZ: 0.0326,
+  hipsY: 0.9837,
+  hipsZ: -0.0066,
+  hipsToHipY: -0.0539,
+  hipsToHipZ: 0.0623,
+  hipY: 0.9298,
+  hipZ: 0.0557,
+  hipX: 0.0806,
+  hipsToShY: 0.4292,
+  hipsToShZ: 0.0258,
+  upperArm: 0.2576,
+  forearm: 0.2338
 };
 
 const BONE_PARENT = {
@@ -60,17 +65,17 @@ const BONE_PARENT = {
 const BONE_ORDER = Object.keys(BONE_PARENT);
 
 // IK Analítica de 2 ossos para travar o tornozelo em (dz, dy) mantendo o pé horizontal
-function solveLeg2BoneIK(dz, dy, parentPitchX = 0) {
-  const maxReach = SEG.thigh + SEG.shin - 0.004;
+function solveLeg2BoneIK(dz, dy, seg, parentPitchX = 0) {
+  const maxReach = seg.thigh + seg.shin - 0.004;
   let dist = Math.hypot(dz, dy);
   if (dist > maxReach) dist = maxReach;
   if (dist < 0.14) dist = 0.14;
 
-  const cosKneeExt = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + SEG.shin ** 2 - dist ** 2) / (2 * SEG.thigh * SEG.shin)));
+  const cosKneeExt = Math.max(-1, Math.min(1, (seg.thigh ** 2 + seg.shin ** 2 - dist ** 2) / (2 * seg.thigh * seg.shin)));
   const kneeBend = Math.PI - Math.acos(cosKneeExt);
 
   const angDownToTarget = Math.atan2(dz, -dy);
-  const cosA = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + dist ** 2 - SEG.shin ** 2) / (2 * SEG.thigh * dist)));
+  const cosA = Math.max(-1, Math.min(1, (seg.thigh ** 2 + dist ** 2 - seg.shin ** 2) / (2 * seg.thigh * dist)));
   const a = Math.acos(cosA);
 
   const thighWorldRx = -(angDownToTarget + a);
@@ -80,20 +85,19 @@ function solveLeg2BoneIK(dz, dy, parentPitchX = 0) {
 }
 
 // IK Analítica de braço 2 ossos para encostar palmas em um plano frontal (+Z)
-function solveArm2BoneIK(dz, dy, torsoPitchX = 0) {
-  const maxReach = SEG.upperArm + SEG.forearm - 0.008;
+function solveArm2BoneIK(dz, dy, seg, torsoPitchX = 0) {
+  const maxReach = seg.upperArm + seg.forearm - 0.008;
   let dist = Math.hypot(dz, dy);
   if (dist > maxReach) dist = maxReach;
   if (dist < 0.14) dist = 0.14;
 
-  const cosElbExt = Math.max(-1, Math.min(1, (SEG.upperArm ** 2 + SEG.forearm ** 2 - dist ** 2) / (2 * SEG.upperArm * SEG.forearm)));
+  const cosElbExt = Math.max(-1, Math.min(1, (seg.upperArm ** 2 + seg.forearm ** 2 - dist ** 2) / (2 * seg.upperArm * seg.forearm)));
   const elbowBend = -(Math.PI - Math.acos(cosElbExt));
 
   const angDownToTarget = Math.atan2(dz, -dy);
-  const cosA = Math.max(-1, Math.min(1, (SEG.upperArm ** 2 + dist ** 2 - SEG.forearm ** 2) / (2 * SEG.upperArm * dist)));
+  const cosA = Math.max(-1, Math.min(1, (seg.upperArm ** 2 + dist ** 2 - seg.forearm ** 2) / (2 * seg.upperArm * dist)));
   const a = Math.acos(cosA);
 
-  // Cotovelos apontam para baixo/trás como em flexão natural
   const upperWorldRx = -(angDownToTarget - a);
   const armRx = upperWorldRx - torsoPitchX;
   return { armRx, foreRx: elbowBend };
@@ -124,7 +128,8 @@ export class WorkoutScene3D {
     this.bones = {};
     this.restWorldQ = {};
     this.neutralWorldQ = {};
-    this.hipsRestPos = new THREE.Vector3(0, 0.9526, -0.0046);
+    this.seg = { ...DEFAULT_SEG };
+    this.hipsRestPos = new THREE.Vector3(0, DEFAULT_SEG.hipsY, DEFAULT_SEG.hipsZ);
     this.markers = {};
     this.muscleRings = {};
 
@@ -643,6 +648,27 @@ export class WorkoutScene3D {
     const pRFore = getWorldPos('RightForeArm');
     const pHips = getWorldPos('Hips');
     const pSpine2 = getWorldPos('Spine2');
+    const pLArm = getWorldPos('LeftArm');
+    const pLHip = getWorldPos('LeftUpLeg');
+
+    // Mede comprimentos reais diretamente do esqueleto carregado
+    this.seg = {
+      thigh: pLHip.distanceTo(pLKnee),
+      shin: pLKnee.distanceTo(pLFoot),
+      footH: pLFoot.y,
+      footZ: pLFoot.z,
+      hipsY: pHips.y,
+      hipsZ: pHips.z,
+      hipsToHipY: pLHip.y - pHips.y,
+      hipsToHipZ: pLHip.z - pHips.z,
+      hipY: pLHip.y,
+      hipZ: pLHip.z,
+      hipX: pLHip.x,
+      hipsToShY: pLArm.y - pHips.y,
+      hipsToShZ: pLArm.z - pHips.z,
+      upperArm: pLArm.distanceTo(pLFore),
+      forearm: pLFore.distanceTo(pLHand)
+    };
 
     this.markers = {
       heelL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x, SOLE_Y, pLFoot.z - 0.042)),
@@ -899,14 +925,13 @@ export class WorkoutScene3D {
         const hy = -0.015;
         this.currentHipsOffset.set(hx, hy, hz);
 
-        const hipJointZ = SEG.hipsToHipZ + hz;
-        const hipJointY = SEG.hipX * 0 + (0.8399 + hy);
-        const dz = 0.030 - hipJointZ;
-        const dy = SEG.footH - hipJointY;
-        const ik = solveLeg2BoneIK(dz, dy, 0);
+        const hipJointZ = this.seg.hipZ + hz;
+        const hipJointY = this.seg.hipY + hy;
+        const dz = this.seg.footZ - hipJointZ;
+        const dy = this.seg.footH - hipJointY;
+        const ik = solveLeg2BoneIK(dz, dy, this.seg, 0);
 
-        // Compensa pequeno balanço lateral mantendo os pés horizontais no solo
-        const latTilt = -Math.atan2(hx, 0.77);
+        const latTilt = -Math.atan2(hx, this.seg.thigh + this.seg.shin);
         pose.LeftUpLeg = [ik.hipRx, 0, latTilt];
         pose.RightUpLeg = [ik.hipRx, 0, latTilt];
         pose.LeftLeg = [ik.kneeRx, 0, 0];
@@ -1012,12 +1037,13 @@ export class WorkoutScene3D {
       case 'chair_squat': {
         const d = smooth01(2.0);
         const isChair = this.animId === 'chair_squat';
-        // Agachamento controlado com pés travados planos no chão via IK
-        const hz = SEG.hipsToHipZ - (isChair ? 0.24 : 0.21) * d;
-        const hy = 0.8399 - (isChair ? 0.35 : 0.33) * d;
-        this.currentHipsOffset.set(0, -0.35 * d * (isChair ? 1 : 0.94), -(isChair ? 0.24 : 0.21) * d);
+        const shiftZ = -(isChair ? 0.26 : 0.22) * d;
+        const shiftY = -(isChair ? 0.36 : 0.34) * d;
+        const hz = this.seg.hipZ + shiftZ;
+        const hy = this.seg.hipY + shiftY;
+        this.currentHipsOffset.set(0, shiftY, shiftZ);
 
-        const ik = solveLeg2BoneIK(0.030 - hz, SEG.footH - hy, 0);
+        const ik = solveLeg2BoneIK(this.seg.footZ - hz, this.seg.footH - hy, this.seg, 0);
         pose.LeftUpLeg = [ik.hipRx, 0.10 * d, 0.08];
         pose.RightUpLeg = [ik.hipRx, -0.10 * d, -0.08];
         pose.LeftLeg = [ik.kneeRx, 0, 0];
@@ -1035,22 +1061,20 @@ export class WorkoutScene3D {
       }
 
       case 'wall_pushup': {
-        // Pés 100% imóveis no chão; corpo gira em torno dos tornozelos e palmas ficam presas na parede (z=0.645)
         const press = smooth01(2.2);
         const lean = 0.22 + 0.20 * press;
         const fixedAnkleZ = -0.06;
 
-        // Calcula deslocamento do tornozelo quando Hips gira por +lean para travar o pé exatamente em fixedAnkleZ
-        const restAnkDz = 0.0298 - (-0.0046); // +0.0344
-        const restAnkDy = 0.0689 - 0.9526;    // -0.8837
+        const restAnkDz = this.seg.footZ - this.seg.hipsZ;
+        const restAnkDy = this.seg.footH - this.seg.hipsY;
         const rotAnkDz = restAnkDy * Math.sin(lean) + restAnkDz * Math.cos(lean);
         const rotAnkDy = restAnkDy * Math.cos(lean) - restAnkDz * Math.sin(lean);
 
         const hipsWorldZ = fixedAnkleZ - rotAnkDz;
-        const hipsWorldY = SEG.footH - rotAnkDy;
+        const hipsWorldY = this.seg.footH - rotAnkDy;
         this.charRoot.position.z = hipsWorldZ - this.hipsRestPos.z;
         this.charRoot.position.y = hipsWorldY - this.hipsRestPos.y;
-        useSnap = false; // Posição calculada diretamente pelo pivô do tornozelo travado!
+        useSnap = false;
 
         pose.Hips = [lean, 0, 0];
         pose.LeftFoot = [-lean, 0, 0];
@@ -1059,10 +1083,9 @@ export class WorkoutScene3D {
         pose.RightUpLeg = [0, 0, -0.05];
         setSpineCurve(0.02, 0, 0, -0.16);
 
-        // Calcula posição atual do ombro no mundo e resolve IK dos braços até a parede (z=0.645, y=1.28)
-        const shZ = hipsWorldZ + SEG.hipsToShY * Math.sin(lean) + SEG.hipsToShZ * Math.cos(lean);
-        const shY = hipsWorldY + SEG.hipsToShY * Math.cos(lean) - SEG.hipsToShZ * Math.sin(lean);
-        const armIK = solveArm2BoneIK(0.645 - shZ, 1.28 - shY, lean + 0.02);
+        const shZ = hipsWorldZ + this.seg.hipsToShY * Math.sin(lean) + this.seg.hipsToShZ * Math.cos(lean);
+        const shY = hipsWorldY + this.seg.hipsToShY * Math.cos(lean) - this.seg.hipsToShZ * Math.sin(lean);
+        const armIK = solveArm2BoneIK(0.645 - shZ, 1.28 - shY, this.seg, lean + 0.02);
 
         pose.LeftShoulder = [0, 0.16 * press, 0];
         pose.RightShoulder = [0, -0.16 * press, 0];
@@ -1077,29 +1100,27 @@ export class WorkoutScene3D {
       }
 
       case 'glute_bridge': {
-        // Ombros e pés 100% travados no tapete via IK; SOMENTE o quadril sobe!
         const lift = smooth01(2.0);
-        const beta = 0.40 * lift; // Inclinação da ponte (0° a 23°)
+        const beta = 0.40 * lift;
         const hipsPitch = -Math.PI / 2 - beta;
 
         const shZ = -0.35;
         const shY = MAT_TOP_Y + 0.095;
-        const hipsZ = shZ + SEG.hipsToShY * Math.cos(beta);
-        const hipsY = shY + SEG.hipsToShY * Math.sin(beta);
+        const hipsZ = shZ + this.seg.hipsToShY * Math.cos(beta);
+        const hipsY = shY + this.seg.hipsToShY * Math.sin(beta);
 
-        // Posição real da articulação do quadril (LeftUpLeg) para o IK da perna
-        const hjY = hipsY + SEG.hipsToHipY * Math.cos(hipsPitch) - SEG.hipsToHipZ * Math.sin(hipsPitch);
-        const hjZ = hipsZ + SEG.hipsToHipY * Math.sin(hipsPitch) + SEG.hipsToHipZ * Math.cos(hipsPitch);
+        const hjY = hipsY + this.seg.hipsToHipY * Math.cos(hipsPitch) - this.seg.hipsToHipZ * Math.sin(hipsPitch);
+        const hjZ = hipsZ + this.seg.hipsToHipY * Math.sin(hipsPitch) + this.seg.hipsToHipZ * Math.cos(hipsPitch);
 
-        const fixedAnkZ = 0.44;
-        const fixedAnkY = MAT_TOP_Y + SEG.footH;
+        const fixedAnkZ = 0.46;
+        const fixedAnkY = MAT_TOP_Y + this.seg.footH;
         const dz = fixedAnkZ - hjZ;
         const dy = fixedAnkY - hjY;
         const dist = Math.hypot(dz, dy);
-        const cosK = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + SEG.shin ** 2 - dist ** 2) / (2 * SEG.thigh * SEG.shin)));
+        const cosK = Math.max(-1, Math.min(1, (this.seg.thigh ** 2 + this.seg.shin ** 2 - dist ** 2) / (2 * this.seg.thigh * this.seg.shin)));
         const kneeBend = Math.PI - Math.acos(cosK);
         const alphaTarget = Math.atan2(dy, dz);
-        const cosA = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + dist ** 2 - SEG.shin ** 2) / (2 * SEG.thigh * dist)));
+        const cosA = Math.max(-1, Math.min(1, (this.seg.thigh ** 2 + dist ** 2 - this.seg.shin ** 2) / (2 * this.seg.thigh * dist)));
         const a = Math.acos(cosA);
         const thighWorldFromPlusZ = alphaTarget + a;
 
@@ -1111,7 +1132,6 @@ export class WorkoutScene3D {
         useSnap = false;
 
         pose.Hips = [hipsPitch, 0, 0];
-        // Mantém coluna reta até os ombros para que o ombro NUNCA descole do tapete
         pose.Spine = [0, 0, 0];
         pose.Spine1 = [0, 0, 0];
         pose.Spine2 = [0, 0, 0];
@@ -1206,9 +1226,9 @@ export class WorkoutScene3D {
         pose.LeftForeArm = [-Math.PI / 2, -0.45, 0];
         pose.RightForeArm = [-Math.PI / 2, 0.45, 0];
 
-        // Coxas em +0.11 rad para ambos os joelhos tocarem o tapete junto com os cotovelos
-        pose.LeftUpLeg = [0.11, 0, 0.04];
-        pose.RightUpLeg = [0.11, 0, -0.04];
+        // Coxas em +0.086 rad para ambos os joelhos tocarem o tapete junto com os cotovelos
+        pose.LeftUpLeg = [0.086, 0, 0.04];
+        pose.RightUpLeg = [0.086, 0, -0.04];
         pose.LeftLeg = [1.32, 0, 0];
         pose.RightLeg = [1.32, 0, 0];
 
@@ -1242,8 +1262,8 @@ export class WorkoutScene3D {
       }
 
       case 'side_plank': {
-        // Ângulo exato (0.253 rad = 14.5°) onde cotovelo de apoio e pé de baixo encostam juntos no tapete
-        const tilt = 0.253;
+        // Ângulo exato (0.258 rad = 14.8°) onde cotovelo de apoio e pé de baixo encostam juntos no tapete
+        const tilt = 0.258;
         if (!isLeft) {
           pose.Hips = [0, 0, Math.PI / 2 - tilt + breath * 0.008];
           setSpineCurve(0, 0, -0.02, 0);
@@ -1346,8 +1366,8 @@ export class WorkoutScene3D {
       }
 
       case 'quad_stretch': {
-        // Mão encostada e segurando o tornozelo/pé atrás (distância verificada ~4 mm)
-        const pulse = 0.015 * breath;
+        // Mão encostada e segurando o tornozelo/pé atrás (compensando os 11° da pose neutra: rz = -sgn * 0.35)
+        const pulse = 0.012 * breath;
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const knee = isLeft ? 'LeftLeg' : 'RightLeg';
         const foot = isLeft ? 'LeftFoot' : 'RightFoot';
@@ -1357,14 +1377,14 @@ export class WorkoutScene3D {
         const oppArm = isLeft ? 'RightArm' : 'LeftArm';
         supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[up] = [0.20 + pulse, 0, 0];
-        pose[knee] = [2.50 + pulse, 0, 0];
-        pose[foot] = [0.35, 0, 0];
+        pose[up] = [0.25 + pulse, 0, 0];
+        pose[knee] = [2.55 + pulse, 0, 0];
+        pose[foot] = [0.32, 0, 0];
         setSpineCurve(0, 0, 0, 0);
-        pose[arm] = [0.48, 0, -sgn * 0.14];
+        pose[arm] = [0.45, 0, -sgn * 0.35];
         pose[fore] = [-0.15, 0, 0];
-        pose[hand] = [0.22, 0, 0];
-        pose[oppArm] = [0, 0, -sgn * 0.25];
+        pose[hand] = [0.25, 0, -sgn * 0.15];
+        pose[oppArm] = [0, 0, -sgn * 0.22];
         this.emitPhaseCue(isLeft ? 'Segure o pé esquerdo atrás • Alongue a coxa' : 'Segure o pé direito atrás • Alongue a coxa');
         break;
       }
@@ -1377,7 +1397,7 @@ export class WorkoutScene3D {
         const fFoot = isLeft ? 'LeftFoot' : 'RightFoot';
         const bMarker = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[fUp] = [-1.04, 0, 0];
+        pose[fUp] = [-1.005, 0, 0];
         pose[fKnee] = [0.04, 0, 0];
         pose[fFoot] = [-0.36, 0, 0]; // Ponta do pé para cima apoiando o calcanhar no banco
 
