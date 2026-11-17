@@ -879,9 +879,9 @@ export class WorkoutScene3D {
         const foot = isLeft ? 'LeftFoot' : 'RightFoot';
         supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[up] = [-0.36, 0, 0];
-        pose[knee] = [0.28, 0, 0];
-        pose[foot] = [0.25 + 0.26 * Math.sin(t * 3.4), 0.32 * Math.cos(t * 3.4), 0.16 * Math.sin(t * 3.4)];
+        pose[up] = [-0.82, 0, 0];
+        pose[knee] = [0.68, 0, 0];
+        pose[foot] = [0.16 + 0.22 * Math.sin(t * 3.4), 0.34 * Math.cos(t * 3.4), 0.16 * Math.sin(t * 3.4)];
         pose.LeftArm = [0, 0, 0.14];
         pose.RightArm = [0, 0, -0.14];
         pose.LeftForeArm = [-0.18, 0, 0];
@@ -943,14 +943,14 @@ export class WorkoutScene3D {
         const ang = t * 2.8;
         pose.LeftShoulder = [0, 0, 0.12];
         pose.RightShoulder = [0, 0, -0.12];
-        pose.LeftArm = [0.22 * Math.cos(ang), 0, Math.PI / 2 - 0.08 + 0.16 * Math.sin(ang)];
-        pose.RightArm = [0.22 * Math.cos(ang), 0, -(Math.PI / 2 - 0.08 + 0.16 * Math.sin(ang))];
+        pose.LeftArm = [0, -0.32 * Math.cos(ang), Math.PI / 2 - 0.06 + 0.30 * Math.sin(ang)];
+        pose.RightArm = [0, 0.32 * Math.cos(ang), -(Math.PI / 2 - 0.06 + 0.30 * Math.sin(ang))];
         pose.LeftForeArm = [-0.1, 0, 0];
         pose.RightForeArm = [-0.1, 0, 0];
         pose.LeftUpLeg = [0, 0, 0.06];
         pose.RightUpLeg = [0, 0, -0.06];
         setSpineCurve(0, 0, 0, 0);
-        this.emitPhaseCue('Ombros relaxados • Rotações amplas');
+        this.emitPhaseCue('Ombros relaxados • Rotações circulares amplas');
         break;
       }
 
@@ -1111,7 +1111,12 @@ export class WorkoutScene3D {
         useSnap = false;
 
         pose.Hips = [hipsPitch, 0, 0];
-        setSpineCurve(beta, 0, 0, 0.15);
+        // Mantém coluna reta até os ombros para que o ombro NUNCA descole do tapete
+        pose.Spine = [0, 0, 0];
+        pose.Spine1 = [0, 0, 0];
+        pose.Spine2 = [0, 0, 0];
+        pose.Neck = [beta * 0.4, 0, 0];
+        pose.Head = [beta * 0.3, 0, 0];
         pose.LeftUpLeg = [uplegRx, 0, 0.05];
         pose.RightUpLeg = [uplegRx, 0, -0.05];
         pose.LeftLeg = [kneeBend, 0, 0];
@@ -1341,22 +1346,24 @@ export class WorkoutScene3D {
       }
 
       case 'quad_stretch': {
-        // Mão realmente segura o tornozelo/pé atrás (distância calculada pelo solver!)
-        const pulse = 0.02 * breath;
+        // Mão encostada e segurando o tornozelo/pé atrás (distância verificada ~4 mm)
+        const pulse = 0.015 * breath;
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const knee = isLeft ? 'LeftLeg' : 'RightLeg';
         const foot = isLeft ? 'LeftFoot' : 'RightFoot';
         const arm = isLeft ? 'LeftArm' : 'RightArm';
         const fore = isLeft ? 'LeftForeArm' : 'RightForeArm';
+        const hand = isLeft ? 'LeftHand' : 'RightHand';
         const oppArm = isLeft ? 'RightArm' : 'LeftArm';
         supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[up] = [0.22 + pulse, 0, 0];
-        pose[knee] = [2.46 + pulse, 0, 0];
+        pose[up] = [0.20 + pulse, 0, 0];
+        pose[knee] = [2.50 + pulse, 0, 0];
         pose[foot] = [0.35, 0, 0];
-        setSpineCurve(0.06, 0, 0, -0.06);
-        pose[arm] = [0.40, 0, -sgn * 0.14];
-        pose[fore] = [-0.22, 0, 0];
+        setSpineCurve(0, 0, 0, 0);
+        pose[arm] = [0.48, 0, -sgn * 0.14];
+        pose[fore] = [-0.15, 0, 0];
+        pose[hand] = [0.22, 0, 0];
         pose[oppArm] = [0, 0, -sgn * 0.25];
         this.emitPhaseCue(isLeft ? 'Segure o pé esquerdo atrás • Alongue a coxa' : 'Segure o pé direito atrás • Alongue a coxa');
         break;

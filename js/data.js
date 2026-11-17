@@ -357,17 +357,17 @@ export const EXERCISE_CATALOG = {
     id: 'calf_stretch',
     name: 'Panturrilha',
     category: 'alongamento',
-    anim: 'calf_stretch',
+    anim: 'calf_raise',
     prop: 'none',
     defaultCamera: 'side',
     muscles: ['calves'],
-    musclesLabel: 'Alongamento de Panturrilha e Tendão de Aquiles',
+    musclesLabel: 'Panturrilhas e Tornozelos',
     steps: [
-      'Em passo largo à frente, flexione o joelho dianteiro e mantenha a perna de trás bem estendida.',
-      'Pressione o calcanhar da perna de trás firmemente contra o chão enquanto projeta o quadril levemente à frente.',
-      'Segure por 30 segundos e repita invertendo as pernas.'
+      'Fique em pé com os pés paralelos na largura do quadril e postura alinhada.',
+      'Suba suavemente na ponta dos dois pés elevando os calcanhares ao máximo.',
+      'Segure brevemente no topo e desça os calcanhares devagar até encostar no chão.'
     ],
-    tip: 'Mantenha o pé de trás apontado diretamente para frente e o calcanhar sem descolar do solo.'
+    tip: 'Suba e desça de forma controlada sem dobrar os joelhos.'
   },
   hip_flexor_stretch: {
     id: 'hip_flexor_stretch',
