@@ -821,15 +821,15 @@ export class WorkoutScene3D {
 
       case 'hip_rotation': {
         const ang = t * 2.2;
-        this.currentHipsOffset.set(7.5 * Math.cos(ang), 0, 6.5 * Math.sin(ang));
-        pose.Hips = [0.08 * Math.sin(ang), 0, -0.1 * Math.cos(ang)];
-        setSpineCurve(-0.08 * Math.sin(ang), 0, 0.1 * Math.cos(ang));
+        this.currentHipsOffset.set(0.065 * Math.cos(ang), 0, 0.055 * Math.sin(ang));
+        pose.Hips = [0.06 * Math.sin(ang), 0, -0.07 * Math.cos(ang)];
+        setSpineCurve(-0.06 * Math.sin(ang), 0, 0.08 * Math.cos(ang));
         pose.LeftArm = [0, 0, 0.42];
         pose.LeftForeArm = [-0.35, 0, -0.75];
         pose.RightArm = [0, 0, -0.42];
         pose.RightForeArm = [-0.35, 0, 0.75];
-        pose.LeftUpLeg = [0, 0, 0.1];
-        pose.RightUpLeg = [0, 0, -0.1];
+        pose.LeftUpLeg = [0.065 * Math.sin(ang), 0, 0.09 - 0.075 * Math.cos(ang)];
+        pose.RightUpLeg = [0.065 * Math.sin(ang), 0, -0.09 - 0.075 * Math.cos(ang)];
         this.emitPhaseCue('Círculos amplos e contínuos com o quadril');
         break;
       }

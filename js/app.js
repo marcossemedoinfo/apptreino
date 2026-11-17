@@ -638,46 +638,6 @@ class AppTreino {
       controls.appendChild(sideStrip);
     }
 
-    // Controle de séries (S1, S2) quando houver múltiplas séries
-    if (st.setsTotal > 1) {
-      const setsStrip = document.createElement('div');
-      setsStrip.className = 'sets-strip';
-      st.setsDone.forEach((done, idx) => {
-        const sb = document.createElement('button');
-        sb.type = 'button';
-        sb.className = `set-pill ${done ? 'done' : ''}`;
-        sb.dataset.setIdx = String(idx);
-        sb.textContent = `S${idx + 1}`;
-        sb.title = `Marcar Série ${idx + 1}`;
-        sb.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.selectItem(item.key);
-          this.timers.toggleSet(item.key, idx);
-        });
-        setsStrip.appendChild(sb);
-      });
-      controls.appendChild(setsStrip);
-    }
-
-    // Contador rápido de repetições quando o item for por repetições
-    if (st.repsTarget > 0) {
-      const repBox = document.createElement('div');
-      repBox.className = 'rep-counter';
-      repBox.innerHTML = `
-        <button type="button" class="rep-btn" data-delta="-1" aria-label="Diminuir repetição">−</button>
-        <span data-rep-text="${item.key}">${st.repsCount}/${st.repsTarget}</span>
-        <button type="button" class="rep-btn" data-delta="1" aria-label="Adicionar repetição">+</button>
-      `;
-      repBox.querySelectorAll('.rep-btn').forEach(rb => {
-        rb.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.selectItem(item.key);
-          this.timers.adjustReps(item.key, Number(rb.dataset.delta));
-        });
-      });
-      controls.appendChild(repBox);
-    }
-
     // Cronômetro individual ao lado de cada treino/alongamento
     const timerBox = document.createElement('div');
     timerBox.className = `inline-timer ${st.running ? 'running' : ''}`;
@@ -826,14 +786,6 @@ class AppTreino {
         const playBtn = tBox.querySelector('[data-action="play"]');
         if (playBtn) playBtn.textContent = st.running ? '⏸' : '▶';
       }
-
-      row.querySelectorAll('.set-pill').forEach(sb => {
-        const idx = Number(sb.dataset.setIdx);
-        sb.classList.toggle('done', Boolean(st.setsDone[idx]));
-      });
-
-      const repText = row.querySelector(`[data-rep-text="${CSS.escape(key)}"]`);
-      if (repText) repText.textContent = `${st.repsCount}/${st.repsTarget}`;
 
       row.querySelectorAll('.side-chip').forEach(sc => {
         const s = sc.dataset.side;

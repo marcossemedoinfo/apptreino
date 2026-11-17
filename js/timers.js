@@ -352,11 +352,11 @@ export class TimerManager {
           sound.playSetComplete();
           message = 'Lado direito concluído! Troque para o lado esquerdo.';
         } else {
-          this.markNextSetDone(st);
+          st.done = true;
           st.leftDone = false;
           st.rightDone = false;
           st.side = 'right';
-          message = st.done ? 'Concluído!' : 'Série concluída! Prepare a próxima.';
+          message = 'Concluído!';
         }
       } else {
         st.leftDone = true;
@@ -366,16 +366,16 @@ export class TimerManager {
           sound.playSetComplete();
           message = 'Lado esquerdo concluído! Troque para o lado direito.';
         } else {
-          this.markNextSetDone(st);
+          st.done = true;
           st.leftDone = false;
           st.rightDone = false;
           st.side = 'right';
-          message = st.done ? 'Concluído!' : 'Série concluída! Prepare a próxima.';
+          message = 'Concluído!';
         }
       }
     } else {
-      this.markNextSetDone(st);
-      message = st.done ? 'Etapa concluída!' : 'Série concluída! Prepare a próxima.';
+      st.done = true;
+      message = 'Concluído!';
     }
 
     if (st.done) {
