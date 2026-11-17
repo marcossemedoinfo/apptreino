@@ -56,6 +56,7 @@ class AppTreino {
       hudModeLabel: document.getElementById('hud-mode-label'),
       hudTimerValue: document.getElementById('hud-timer-value'),
       hudTimerToggle: document.getElementById('hud-timer-toggle'),
+      stagePhaseCue: document.getElementById('stage-phase-cue'),
       activeMuscles: document.getElementById('active-muscles'),
       activeSteps: document.getElementById('active-steps'),
       activeTip: document.getElementById('active-tip'),
@@ -73,6 +74,7 @@ class AppTreino {
       tipsList: document.getElementById('tips-list'),
       btnMute: document.getElementById('btn-mute'),
       btn3dPlay: document.getElementById('btn-3d-play'),
+      btnAutoRotate: document.getElementById('btn-auto-rotate'),
       btnMuscleHl: document.getElementById('btn-muscle-hl'),
       btnGuidedNext: document.getElementById('btn-guided-next'),
       btnResetDay: document.getElementById('btn-reset-day'),
@@ -82,7 +84,13 @@ class AppTreino {
   }
 
   init3D() {
-    this.scene3d = new WorkoutScene3D(this.dom.canvasContainer);
+    this.scene3d = new WorkoutScene3D(this.dom.canvasContainer, {
+      onPhaseChange: (text) => {
+        if (this.dom.stagePhaseCue) {
+          this.dom.stagePhaseCue.textContent = text;
+        }
+      }
+    });
   }
 
   getProfile() {
@@ -154,6 +162,12 @@ class AppTreino {
       this.scene3d.setPlaying(next);
       this.dom.btn3dPlay.classList.toggle('active', next);
       this.dom.btn3dPlay.textContent = next ? '⏸ 3D' : '▶ 3D';
+    });
+
+    this.dom.btnAutoRotate?.addEventListener('click', () => {
+      const next = !this.scene3d.autoRotate;
+      this.scene3d.setAutoRotate(next);
+      this.dom.btnAutoRotate.classList.toggle('active', next);
     });
 
     document.querySelectorAll('.speed-btn').forEach(btn => {
