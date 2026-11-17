@@ -91,12 +91,12 @@ class AppTreino {
           this.dom.stagePhaseCue.textContent = text;
         }
       },
-      onModelStatus: (status) => {
+      onModelStatus: (status, detail) => {
         if (!this.dom.modelLoadingPill) return;
         if (status === 'ready') {
           this.dom.modelLoadingPill.classList.add('hidden');
         } else if (status === 'error') {
-          this.dom.modelLoadingPill.textContent = 'Erro ao carregar modelo 3D (verifique conexão/servidor)';
+          this.dom.modelLoadingPill.textContent = `Erro 3D: ${detail || 'verifique conexão/servidor'}`;
         }
       }
     });

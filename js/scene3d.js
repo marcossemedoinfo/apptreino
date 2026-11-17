@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const CAMERA_PRESETS = {
@@ -459,23 +460,32 @@ export class WorkoutScene3D {
     this.propTreadmill = tmGroup;
   }
 
-  loadTrainerModel() {
+  async loadTrainerModel() {
     this.onModelStatus('loading');
-    const loader = new GLTFLoader();
-    loader.load(
-      './assets/personal_trainer.glb',
-      (gltf) => {
-        if (this.disposed) return;
-        this.setupTrainerRig(gltf.scene);
-        this.modelReady = true;
-        this.onModelStatus('ready');
-      },
-      undefined,
-      (err) => {
-        console.error('Erro ao carregar personal_trainer.glb:', err);
-        this.onModelStatus('error');
+    try {
+      if (MeshoptDecoder?.ready) {
+        await MeshoptDecoder.ready;
       }
-    );
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      loader.load(
+        './assets/personal_trainer.glb',
+        (gltf) => {
+          if (this.disposed) return;
+          this.setupTrainerRig(gltf.scene);
+          this.modelReady = true;
+          this.onModelStatus('ready');
+        },
+        undefined,
+        (err) => {
+          console.error('Erro ao carregar personal_trainer.glb:', err);
+          this.onModelStatus('error', err?.message || 'Falha ao carregar modelo 3D');
+        }
+      );
+    } catch (err) {
+      console.error('Erro no MeshoptDecoder/GLTFLoader:', err);
+      this.onModelStatus('error', err?.message || 'Falha ao inicializar decodificador 3D');
+    }
   }
 
   setupTrainerRig(modelScene) {
