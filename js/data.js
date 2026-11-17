@@ -342,13 +342,13 @@ export const EXERCISE_CATALOG = {
     name: 'Posterior da coxa',
     category: 'alongamento',
     anim: 'hamstring_stretch',
-    prop: 'none',
+    prop: 'bench',
     defaultCamera: 'side',
     muscles: ['hamstrings', 'calves'],
     musclesLabel: 'Alongamento de Posteriores de Coxa',
     steps: [
-      'Dê um pequeno passo à frente mantendo a perna dianteira estendida com o calcanhar apoiado e a de trás levemente dobrada.',
-      'Incline o tronco à frente partindo do quadril enquanto desliza as mãos em direção à canela/pé da frente.',
+      'Fique em pé de frente para um banco ou degrau firme e apoie um calcanhar sobre o apoio com a perna estendida.',
+      'Com as mãos na cintura e a coluna reta, incline o tronco suavemente para frente partindo do quadril.',
       'Mantenha por 30 segundos sentindo alongar atrás da coxa e troque de perna.'
     ],
     tip: 'Evite arredondar demais as costas; prefira inclinar a partir do quadril com peito aberto.'

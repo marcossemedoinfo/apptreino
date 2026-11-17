@@ -1,4 +1,4 @@
-// Motor 3D com Personal Trainer Humana Real (GLB SkinnedMesh) + Estúdio PBR + Biomecânica Fluida
+// Motor 3D com Personal Trainer Humana Real (GLB SkinnedMesh) + IK Analítica + Precisão de Contato
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -15,6 +15,22 @@ const CAMERA_PRESETS = {
 
 const MAT_TOP_Y = 0.030;
 const TREADMILL_BELT_Y = 0.150;
+const BENCH_TOP_Y = 0.380;
+const SOLE_Y = 0.000;
+
+// Comprimentos anatômicos reais extraídos de personal_trainer.glb
+const SEG = {
+  thigh: 0.3384,
+  shin: 0.4333,
+  footH: 0.0689,
+  hipsToHipY: -0.1127,
+  hipsToHipZ: 0.0670,
+  hipX: 0.0839,
+  hipsToShY: 0.4374,
+  hipsToShZ: 0.0214,
+  upperArm: 0.2667,
+  forearm: 0.2276
+};
 
 const BONE_PARENT = {
   Hips: null,
@@ -43,6 +59,46 @@ const BONE_PARENT = {
 
 const BONE_ORDER = Object.keys(BONE_PARENT);
 
+// IK Analítica de 2 ossos para travar o tornozelo em (dz, dy) mantendo o pé horizontal
+function solveLeg2BoneIK(dz, dy, parentPitchX = 0) {
+  const maxReach = SEG.thigh + SEG.shin - 0.004;
+  let dist = Math.hypot(dz, dy);
+  if (dist > maxReach) dist = maxReach;
+  if (dist < 0.14) dist = 0.14;
+
+  const cosKneeExt = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + SEG.shin ** 2 - dist ** 2) / (2 * SEG.thigh * SEG.shin)));
+  const kneeBend = Math.PI - Math.acos(cosKneeExt);
+
+  const angDownToTarget = Math.atan2(dz, -dy);
+  const cosA = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + dist ** 2 - SEG.shin ** 2) / (2 * SEG.thigh * dist)));
+  const a = Math.acos(cosA);
+
+  const thighWorldRx = -(angDownToTarget + a);
+  const hipRx = thighWorldRx - parentPitchX;
+  const footRx = -(parentPitchX + hipRx + kneeBend);
+  return { hipRx, kneeRx: kneeBend, footRx };
+}
+
+// IK Analítica de braço 2 ossos para encostar palmas em um plano frontal (+Z)
+function solveArm2BoneIK(dz, dy, torsoPitchX = 0) {
+  const maxReach = SEG.upperArm + SEG.forearm - 0.008;
+  let dist = Math.hypot(dz, dy);
+  if (dist > maxReach) dist = maxReach;
+  if (dist < 0.14) dist = 0.14;
+
+  const cosElbExt = Math.max(-1, Math.min(1, (SEG.upperArm ** 2 + SEG.forearm ** 2 - dist ** 2) / (2 * SEG.upperArm * SEG.forearm)));
+  const elbowBend = -(Math.PI - Math.acos(cosElbExt));
+
+  const angDownToTarget = Math.atan2(dz, -dy);
+  const cosA = Math.max(-1, Math.min(1, (SEG.upperArm ** 2 + dist ** 2 - SEG.forearm ** 2) / (2 * SEG.upperArm * dist)));
+  const a = Math.acos(cosA);
+
+  // Cotovelos apontam para baixo/trás como em flexão natural
+  const upperWorldRx = -(angDownToTarget - a);
+  const armRx = upperWorldRx - torsoPitchX;
+  return { armRx, foreRx: elbowBend };
+}
+
 export class WorkoutScene3D {
   constructor(container, { onPhaseChange, onModelStatus } = {}) {
     this.container = container;
@@ -64,23 +120,19 @@ export class WorkoutScene3D {
     this.disposed = false;
     this.lastPhaseText = '';
 
-    // Estado do rig humano GLB
     this.modelReady = false;
     this.bones = {};
     this.restWorldQ = {};
     this.neutralWorldQ = {};
-    this.hipsRestPos = new THREE.Vector3(0, 0.953, -0.005);
+    this.hipsRestPos = new THREE.Vector3(0, 0.9526, -0.0046);
     this.markers = {};
     this.muscleRings = {};
 
-    // Estado de interpolação suave (quaternion slerp entre poses)
-    this.currentBoneLocalQ = {};
     this.prevBoneLocalQ = {};
     this.blendAlpha = 1;
     this.currentHipsOffset = new THREE.Vector3();
     this.prevHipsOffset = new THREE.Vector3();
 
-    // Objetos temporários reutilizáveis (zero GC por frame)
     this._qAccum = {};
     for (const b of BONE_ORDER) this._qAccum[b] = new THREE.Quaternion();
     this._qTmp = new THREE.Quaternion();
@@ -88,6 +140,7 @@ export class WorkoutScene3D {
     this._qTarget = new THREE.Quaternion();
     this._eulerTmp = new THREE.Euler(0, 0, 0, 'XYZ');
     this._vTmp = new THREE.Vector3();
+    this._vTmp2 = new THREE.Vector3();
 
     this.initScene();
     this.buildStudioEnvironment();
@@ -143,7 +196,6 @@ export class WorkoutScene3D {
     this.controls.target.set(...CAMERA_PRESETS.threeQuarter.target);
     this.controls.update();
 
-    // Iluminação suave de estúdio para pele e tecido naturais
     const hemi = new THREE.HemisphereLight('#f1f5f9', '#1e293b', 0.72);
     this.scene.add(hemi);
 
@@ -172,7 +224,6 @@ export class WorkoutScene3D {
   }
 
   buildStudioEnvironment() {
-    // Textura procedural para piso de academia sem superfícies coplanares (zero Z-fighting!)
     const floorCanvas = document.createElement('canvas');
     floorCanvas.width = 512;
     floorCanvas.height = 512;
@@ -196,7 +247,6 @@ export class WorkoutScene3D {
     floorTex.wrapT = THREE.RepeatWrapping;
     floorTex.repeat.set(6, 6);
 
-    // Piso principal bem separado abaixo da plataforma (-0.025m)
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(7.2, 64),
       new THREE.MeshStandardMaterial({
@@ -207,13 +257,12 @@ export class WorkoutScene3D {
       })
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.025;
+    floor.position.y = -0.03;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Plataforma circular elevada com topo exatamente em Y = 0.000
     const platform = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.38, 1.44, 0.022, 64),
+      new THREE.CylinderGeometry(1.42, 1.48, 0.024, 64),
       new THREE.MeshStandardMaterial({
         color: '#14213a',
         roughness: 0.68,
@@ -221,13 +270,12 @@ export class WorkoutScene3D {
         envMapIntensity: 0.35
       })
     );
-    platform.position.y = -0.011;
+    platform.position.y = -0.012;
     platform.receiveShadow = true;
     this.scene.add(platform);
 
-    // Anel luminoso sutil acima da plataforma (sem Z-fighting)
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(1.34, 1.38, 64),
+      new THREE.RingGeometry(1.38, 1.42, 64),
       new THREE.MeshBasicMaterial({
         color: '#10b981',
         transparent: true,
@@ -237,10 +285,9 @@ export class WorkoutScene3D {
       })
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.003;
+    ring.position.y = 0.002;
     this.scene.add(ring);
 
-    // Fundo curvo arquitetônico distante em -Z
     const backdrop = new THREE.Mesh(
       new THREE.CylinderGeometry(5.2, 5.2, 3.6, 36, 1, true, Math.PI * 0.72, Math.PI * 0.56),
       new THREE.MeshStandardMaterial({
@@ -268,19 +315,19 @@ export class WorkoutScene3D {
     this.propsGroup = new THREE.Group();
     this.scene.add(this.propsGroup);
 
-    // 1. Tapete de exercício (base em Y=0.002 para não colidir com a plataforma)
+    // 1. Tapete de exercício
     const matGroup = new THREE.Group();
     const matMat = new THREE.MeshStandardMaterial({ color: '#0f766e', roughness: 0.82, metalness: 0.05, envMapIntensity: 0.22 });
     const matTrimMat = new THREE.MeshStandardMaterial({ color: '#2dd4bf', roughness: 0.55, envMapIntensity: 0.35 });
 
     const matThickness = MAT_TOP_Y - 0.002;
-    const matBody = new THREE.Mesh(new THREE.BoxGeometry(0.84, matThickness, 1.94), matMat);
+    const matBody = new THREE.Mesh(new THREE.BoxGeometry(0.84, matThickness, 1.98), matMat);
     matBody.position.y = 0.002 + matThickness / 2;
     matBody.receiveShadow = true;
     matBody.castShadow = true;
     matGroup.add(matBody);
 
-    for (const ez of [-0.97, 0.97]) {
+    for (const ez of [-0.99, 0.99]) {
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(matThickness / 2, matThickness / 2, 0.84, 12), matTrimMat);
       cap.rotation.z = Math.PI / 2;
       cap.position.set(0, 0.002 + matThickness / 2, ez);
@@ -289,14 +336,14 @@ export class WorkoutScene3D {
 
     const centerLine = new THREE.Mesh(new THREE.PlaneGeometry(0.016, 1.82), matTrimMat);
     centerLine.rotation.x = -Math.PI / 2;
-    centerLine.position.y = MAT_TOP_Y + 0.002;
+    centerLine.position.y = MAT_TOP_Y + 0.001;
     matGroup.add(centerLine);
 
     matGroup.visible = false;
     this.propsGroup.add(matGroup);
     this.propMat = matGroup;
 
-    // 2. Parede de apoio (Flexão na parede)
+    // 2. Parede frontal (Flexão na parede: face interna exata em Z = 0.675)
     const wallGroup = new THREE.Group();
     const wallPanel = new THREE.Mesh(
       new THREE.BoxGeometry(1.95, 2.3, 0.09),
@@ -329,51 +376,51 @@ export class WorkoutScene3D {
     this.propsGroup.add(wallGroup);
     this.propWall = wallGroup;
 
-    // 2b. Pilar lateral (Alongamento Peitoral)
+    // 2b. Pilar lateral (Alongamento Peitoral: posicionado dinamicamente para encostar na palma)
     const postGroup = new THREE.Group();
     const postMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(0.14, 2.28, 0.2),
+      new THREE.BoxGeometry(0.14, 2.28, 0.26),
       new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.55, metalness: 0.2, envMapIntensity: 0.4 })
     );
-    postMesh.position.set(-0.78, 1.142, -0.04);
+    postMesh.position.set(0, 1.142, 0);
     postMesh.castShadow = true;
     postMesh.receiveShadow = true;
     postGroup.add(postMesh);
 
-    const postAccent = new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.1, 0.21), new THREE.MeshBasicMaterial({ color: '#10b981' }));
-    postAccent.position.set(-0.71, 1.1, -0.04);
+    const postAccent = new THREE.Mesh(new THREE.BoxGeometry(0.136, 2.1, 0.02), new THREE.MeshBasicMaterial({ color: '#10b981' }));
+    postAccent.position.set(0, 1.1, 0);
     postGroup.add(postAccent);
 
     postGroup.visible = false;
     this.propsGroup.add(postGroup);
     this.propPost = postGroup;
 
-    // 3. Cadeira ergonômica (Agachamento com cadeira)
+    // 3. Cadeira ergonômica (posicionada exatamente sob o quadril no Agachamento com cadeira)
     const chairGroup = new THREE.Group();
     const chairFrameMat = new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.35, metalness: 0.7, envMapIntensity: 0.8 });
     const chairPadMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.58, metalness: 0.1, envMapIntensity: 0.3 });
 
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.055, 0.44), chairPadMat);
-    seat.position.set(0, 0.44, -0.45);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.055, 0.42), chairPadMat);
+    seat.position.set(0, 0.43, -0.25);
     seat.castShadow = true;
     seat.receiveShadow = true;
     chairGroup.add(seat);
 
-    const seatRim = new THREE.Mesh(new THREE.BoxGeometry(0.47, 0.014, 0.45), chairFrameMat);
-    seatRim.position.set(0, 0.415, -0.45);
+    const seatRim = new THREE.Mesh(new THREE.BoxGeometry(0.47, 0.014, 0.43), chairFrameMat);
+    seatRim.position.set(0, 0.405, -0.25);
     chairGroup.add(seatRim);
 
-    const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.045), chairPadMat);
-    backrest.position.set(0, 0.69, -0.66);
+    const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.40, 0.045), chairPadMat);
+    backrest.position.set(0, 0.68, -0.45);
     backrest.rotation.x = -0.08;
     backrest.castShadow = true;
     chairGroup.add(backrest);
 
     const legPositions = [
-      [-0.2, 0.215, -0.26],
-      [0.2, 0.215, -0.26],
-      [-0.2, 0.215, -0.64],
-      [0.2, 0.215, -0.64]
+      [-0.2, 0.21, -0.07],
+      [0.2, 0.21, -0.07],
+      [-0.2, 0.21, -0.43],
+      [0.2, 0.21, -0.43]
     ];
     for (const [lx, ly, lz] of legPositions) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.013, 0.42, 12), chairFrameMat);
@@ -384,6 +431,34 @@ export class WorkoutScene3D {
     chairGroup.visible = false;
     this.propsGroup.add(chairGroup);
     this.propChair = chairGroup;
+
+    // 3b. Banco de academia para apoio do pé (Posterior da coxa)
+    const benchGroup = new THREE.Group();
+    const benchPadMat = new THREE.MeshStandardMaterial({ color: '#3b1d36', roughness: 0.62, metalness: 0.08, envMapIntensity: 0.3 });
+    const benchPad = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.06, 0.72), benchPadMat);
+    benchPad.position.set(0, BENCH_TOP_Y - 0.03, 0.86);
+    benchPad.castShadow = true;
+    benchPad.receiveShadow = true;
+    benchGroup.add(benchPad);
+
+    const benchRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.62), chairFrameMat);
+    benchRail.position.set(0, BENCH_TOP_Y - 0.08, 0.86);
+    benchGroup.add(benchRail);
+
+    for (const bz of [0.58, 1.14]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, BENCH_TOP_Y - 0.08, 0.07), chairFrameMat);
+      post.position.set(0, (BENCH_TOP_Y - 0.08) / 2 + 0.002, bz);
+      post.castShadow = true;
+      benchGroup.add(post);
+
+      const footBar = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.035, 0.06), chairFrameMat);
+      footBar.position.set(0, 0.02, bz);
+      footBar.castShadow = true;
+      benchGroup.add(footBar);
+    }
+    benchGroup.visible = false;
+    this.propsGroup.add(benchGroup);
+    this.propBench = benchGroup;
 
     // 4. Esteira elétrica
     const tmGroup = new THREE.Group();
@@ -507,16 +582,13 @@ export class WorkoutScene3D {
           }
         }
       }
-      if (obj.isBone || BONE_ORDER.includes(obj.name) || /Hand(Thumb|Index|Middle|Ring|Pinky)/.test(obj.name)) {
+      if (obj.isBone || BONE_ORDER.includes(obj.name) || /Hand(Thumb|Index|Middle|Ring|Pinky)|ToeEnd/.test(obj.name)) {
         this.bones[obj.name] = obj;
       }
     });
 
     this.charRoot.updateMatrixWorld(true);
-    const bbox = new THREE.Box3().setFromObject(this.trainerScene);
-    const soleY = Number.isFinite(bbox.min.y) ? bbox.min.y : 0.0;
 
-    // Captura orientações mundiais de repouso (T-pose) e constrói pose neutra em pé
     const leftArmDownQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -1.38, 'XYZ'));
     const rightArmDownQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 1.38, 'XYZ'));
 
@@ -534,17 +606,15 @@ export class WorkoutScene3D {
       } else {
         this.neutralWorldQ[name] = rw.clone();
       }
-      this.currentBoneLocalQ[name] = bone.quaternion.clone();
     }
 
     if (this.bones.Hips) {
       this.hipsRestPos.copy(this.bones.Hips.position);
     }
 
-    // Relaxa suavemente os dedos das mãos (evita mãos rígidas em T-pose)
     this.relaxFingers();
 
-    // Cria marcadores anatômicos de contato usando worldToLocal sobre a pose T-pose inicial
+    // Marcadores exatos sobre os ossos reais (com SOLE_Y = 0.000)
     const getWorldPos = (name) => {
       const v = new THREE.Vector3();
       this.bones[name]?.getWorldPosition(v);
@@ -561,8 +631,10 @@ export class WorkoutScene3D {
 
     const pLFoot = getWorldPos('LeftFoot');
     const pLToe = getWorldPos('LeftToeBase');
+    const pLToeEnd = getWorldPos('LeftToeEnd');
     const pRFoot = getWorldPos('RightFoot');
     const pRToe = getWorldPos('RightToeBase');
+    const pRToeEnd = getWorldPos('RightToeEnd');
     const pLKnee = getWorldPos('LeftLeg');
     const pRKnee = getWorldPos('RightLeg');
     const pLHand = getWorldPos('LeftHand');
@@ -573,25 +645,29 @@ export class WorkoutScene3D {
     const pSpine2 = getWorldPos('Spine2');
 
     this.markers = {
-      heelL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x, soleY, pLFoot.z - 0.04)),
-      toeL: addWorldMarker('LeftToeBase', new THREE.Vector3(pLToe.x, soleY, pLToe.z + 0.05)),
-      heelR: addWorldMarker('RightFoot', new THREE.Vector3(pRFoot.x, soleY, pRFoot.z - 0.04)),
-      toeR: addWorldMarker('RightToeBase', new THREE.Vector3(pRToe.x, soleY, pRToe.z + 0.05)),
-      kneeL: addWorldMarker('LeftLeg', new THREE.Vector3(pLKnee.x, pLKnee.y, pLKnee.z + 0.055)),
-      kneeR: addWorldMarker('RightLeg', new THREE.Vector3(pRKnee.x, pRKnee.y, pRKnee.z + 0.055)),
-      handL: addWorldMarker('LeftHand', new THREE.Vector3(pLHand.x + 0.09, pLHand.y, pLHand.z)),
+      heelL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x, SOLE_Y, pLFoot.z - 0.042)),
+      toeL: addWorldMarker('LeftToeBase', new THREE.Vector3(pLToe.x, SOLE_Y, pLToe.z + 0.02)),
+      toeTipL: addWorldMarker('LeftToeBase', new THREE.Vector3(pLToeEnd.x, SOLE_Y, pLToeEnd.z + 0.01)),
+      heelR: addWorldMarker('RightFoot', new THREE.Vector3(pRFoot.x, SOLE_Y, pRFoot.z - 0.042)),
+      toeR: addWorldMarker('RightToeBase', new THREE.Vector3(pRToe.x, SOLE_Y, pRToe.z + 0.02)),
+      toeTipR: addWorldMarker('RightToeBase', new THREE.Vector3(pRToeEnd.x, SOLE_Y, pRToeEnd.z + 0.01)),
+      kneeL: addWorldMarker('LeftLeg', new THREE.Vector3(pLKnee.x, pLKnee.y - 0.015, pLKnee.z + 0.048)),
+      kneeR: addWorldMarker('RightLeg', new THREE.Vector3(pRKnee.x, pRKnee.y - 0.015, pRKnee.z + 0.048)),
+      handL: addWorldMarker('LeftHand', new THREE.Vector3(pLHand.x + 0.08, pLHand.y, pLHand.z)),
       palmL: addWorldMarker('LeftHand', new THREE.Vector3(pLHand.x + 0.04, pLHand.y - 0.018, pLHand.z)),
-      handR: addWorldMarker('RightHand', new THREE.Vector3(pRHand.x - 0.09, pRHand.y, pRHand.z)),
+      handR: addWorldMarker('RightHand', new THREE.Vector3(pRHand.x - 0.08, pRHand.y, pRHand.z)),
       palmR: addWorldMarker('RightHand', new THREE.Vector3(pRHand.x - 0.04, pRHand.y - 0.018, pRHand.z)),
-      backPelvis: addWorldMarker('Hips', new THREE.Vector3(0, pHips.y, pHips.z - 0.11)),
-      backChest: addWorldMarker('Spine2', new THREE.Vector3(0, pSpine2.y + 0.06, pSpine2.z - 0.12)),
-      forearmL: addWorldMarker('LeftForeArm', new THREE.Vector3(pLFore.x + 0.11, pLFore.y, pLFore.z - 0.036)),
-      forearmR: addWorldMarker('RightForeArm', new THREE.Vector3(pRFore.x - 0.11, pRFore.y, pRFore.z - 0.036)),
-      sideAnkleL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x + 0.045, soleY + 0.032, pLFoot.z + 0.03)),
-      sideAnkleR: addWorldMarker('RightFoot', new THREE.Vector3(pRFoot.x - 0.045, soleY + 0.032, pRFoot.z + 0.03))
+      // Marcadores de cotovelo ligados ao braço superior (para não girar quando o antebraço dobra)
+      elbowBotL: addWorldMarker('LeftArm', new THREE.Vector3(pLFore.x, pLFore.y, pLFore.z - 0.032)),
+      elbowBotR: addWorldMarker('RightArm', new THREE.Vector3(pRFore.x, pRFore.y, pRFore.z - 0.032)),
+      sideElbowL: addWorldMarker('LeftArm', new THREE.Vector3(pLFore.x + 0.032, pLFore.y, pLFore.z)),
+      sideElbowR: addWorldMarker('RightArm', new THREE.Vector3(pRFore.x - 0.032, pRFore.y, pRFore.z)),
+      backPelvis: addWorldMarker('Hips', new THREE.Vector3(0, pHips.y, pHips.z - 0.105)),
+      backChest: addWorldMarker('Spine2', new THREE.Vector3(0, pSpine2.y + 0.06, pSpine2.z - 0.115)),
+      sideAnkleL: addWorldMarker('LeftFoot', new THREE.Vector3(pLFoot.x + 0.045, SOLE_Y + 0.028, pLFoot.z + 0.02)),
+      sideAnkleR: addWorldMarker('RightFoot', new THREE.Vector3(pRFoot.x - 0.045, SOLE_Y + 0.028, pRFoot.z + 0.02))
     };
 
-    // Halos anatômicos sutis de foco muscular (sem pintar a pele humana)
     this.buildMuscleFocusHalos();
   }
 
@@ -635,7 +711,6 @@ export class WorkoutScene3D {
         depthWrite: false
       });
       const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.26, 10, 32), mat);
-      // Como os ossos internos têm scale=0.01 (unidades em cm), multiplicamos por 100 em local!
       mesh.rotation.x = rotX;
       mesh.position.set(...offsetLocal);
       b.add(mesh);
@@ -663,9 +738,7 @@ export class WorkoutScene3D {
       for (const mesh of rings) {
         if (!mesh) continue;
         mesh.visible = active;
-        if (active) {
-          mesh.material.opacity = pulse;
-        }
+        if (active) mesh.material.opacity = pulse;
       }
     }
   }
@@ -692,6 +765,7 @@ export class WorkoutScene3D {
     this.propWall.visible = prop === 'wall';
     this.propPost.visible = prop === 'doorframe';
     this.propChair.visible = prop === 'chair';
+    this.propBench.visible = prop === 'bench';
     this.propTreadmill.visible = prop === 'treadmill';
 
     if (prop === 'treadmill') {
@@ -770,7 +844,6 @@ export class WorkoutScene3D {
   applyPose(t, dt) {
     if (!this.modelReady) return;
 
-    // Inicializa deltas de pose em radianos (espaço do personagem: +X esquerda, +Y cima, +Z frente)
     const pose = {};
     for (const b of BONE_ORDER) pose[b] = [0, 0, 0];
 
@@ -780,7 +853,6 @@ export class WorkoutScene3D {
     const isLeft = this.activeSide === 'left';
     const sgn = isLeft ? 1 : -1;
 
-    // Curvas fluidas biomecânicas (C¹ contínuas com breve pausa natural nos extremos)
     const smooth01 = (freq = 1.0, phase = 0) => {
       const r = 0.5 - 0.5 * Math.cos(t * freq + phase);
       return r * r * (3 - 2 * r);
@@ -788,24 +860,24 @@ export class WorkoutScene3D {
     const wave11 = (freq = 1.0, phase = 0) => Math.sin(t * freq + phase);
     const breath = Math.sin(t * 2.1);
 
-    // Helper para distribuir flexão/rotação suavemente pela coluna (lombar -> torácica -> pescoço)
     const setSpineCurve = (rx, ry = 0, rz = 0, headCounterX = 0) => {
       pose.Spine = [rx * 0.30, ry * 0.30, rz * 0.30];
       pose.Spine1 = [rx * 0.35, ry * 0.35, rz * 0.35];
-      pose.Spine2 = [rx * 0.35 + breath * 0.015, ry * 0.35, rz * 0.35];
+      pose.Spine2 = [rx * 0.35 + breath * 0.012, ry * 0.35, rz * 0.35];
       pose.Neck = [headCounterX * 0.5, -ry * 0.35, 0];
       pose.Head = [headCounterX * 0.5, -ry * 0.25, 0];
     };
 
+    let useSnap = true;
     let supportY = 0;
-    let supportMarkers = [this.markers.heelL, this.markers.heelR, this.markers.toeL, this.markers.toeR];
+    let supportMarkers = [this.markers.heelL, this.markers.heelR, this.markers.toeL, this.markers.toeR, this.markers.toeTipL, this.markers.toeTipR];
 
     switch (this.animId) {
       case 'ankle_rotation': {
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const knee = isLeft ? 'LeftLeg' : 'RightLeg';
         const foot = isLeft ? 'LeftFoot' : 'RightFoot';
-        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR] : [this.markers.heelL, this.markers.toeL];
+        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
         pose[up] = [-0.36, 0, 0];
         pose[knee] = [0.28, 0, 0];
@@ -820,17 +892,34 @@ export class WorkoutScene3D {
       }
 
       case 'hip_rotation': {
+        // Pés 100% imóveis e planos no chão via IK analítica; apenas o quadril gira em círculo
         const ang = t * 2.2;
-        this.currentHipsOffset.set(0.065 * Math.cos(ang), 0, 0.055 * Math.sin(ang));
-        pose.Hips = [0.06 * Math.sin(ang), 0, -0.07 * Math.cos(ang)];
-        setSpineCurve(-0.06 * Math.sin(ang), 0, 0.08 * Math.cos(ang));
+        const hx = 0.065 * Math.cos(ang);
+        const hz = 0.055 * Math.sin(ang);
+        const hy = -0.015;
+        this.currentHipsOffset.set(hx, hy, hz);
+
+        const hipJointZ = SEG.hipsToHipZ + hz;
+        const hipJointY = SEG.hipX * 0 + (0.8399 + hy);
+        const dz = 0.030 - hipJointZ;
+        const dy = SEG.footH - hipJointY;
+        const ik = solveLeg2BoneIK(dz, dy, 0);
+
+        // Compensa pequeno balanço lateral mantendo os pés horizontais no solo
+        const latTilt = -Math.atan2(hx, 0.77);
+        pose.LeftUpLeg = [ik.hipRx, 0, latTilt];
+        pose.RightUpLeg = [ik.hipRx, 0, latTilt];
+        pose.LeftLeg = [ik.kneeRx, 0, 0];
+        pose.RightLeg = [ik.kneeRx, 0, 0];
+        pose.LeftFoot = [ik.footRx, 0, -latTilt];
+        pose.RightFoot = [ik.footRx, 0, -latTilt];
+
+        setSpineCurve(-0.05 * Math.sin(ang), 0, 0.06 * Math.cos(ang));
         pose.LeftArm = [0, 0, 0.42];
         pose.LeftForeArm = [-0.35, 0, -0.75];
         pose.RightArm = [0, 0, -0.42];
         pose.RightForeArm = [-0.35, 0, 0.75];
-        pose.LeftUpLeg = [0.065 * Math.sin(ang), 0, 0.09 - 0.075 * Math.cos(ang)];
-        pose.RightUpLeg = [0.065 * Math.sin(ang), 0, -0.09 - 0.075 * Math.cos(ang)];
-        this.emitPhaseCue('Círculos amplos e contínuos com o quadril');
+        this.emitPhaseCue('Círculos com o quadril • Pés firmes no chão');
         break;
       }
 
@@ -838,7 +927,7 @@ export class WorkoutScene3D {
         const swing = 0.66 * wave11(2.5);
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const knee = isLeft ? 'LeftLeg' : 'RightLeg';
-        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR] : [this.markers.heelL, this.markers.toeL];
+        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
         pose[up] = [swing, 0, 0];
         pose[knee] = [0.10 + Math.max(0, swing) * 0.15, 0, 0];
         pose.LeftArm = [-swing * 0.35, 0, 0.22];
@@ -869,50 +958,51 @@ export class WorkoutScene3D {
         const phase = t * 4.2;
         const liftL = Math.pow(Math.max(0, Math.sin(phase)), 0.85);
         const liftR = Math.pow(Math.max(0, -Math.sin(phase)), 0.85);
-        pose.Hips = [0, 0.06 * Math.sin(phase), 0.03 * Math.sin(phase)];
-        pose.LeftUpLeg = [-1.42 * liftL + 0.12 * liftR, 0, 0];
-        pose.LeftLeg = [1.55 * liftL + 0.08, 0, 0];
-        pose.RightUpLeg = [-1.42 * liftR + 0.12 * liftL, 0, 0];
-        pose.RightLeg = [1.55 * liftR + 0.08, 0, 0];
+        pose.Hips = [0, 0.06 * Math.sin(phase), 0];
+        pose.LeftUpLeg = [-1.42 * liftL + 0.08 * liftR, 0, 0];
+        pose.LeftLeg = [1.55 * liftL + 0.06, 0, 0];
+        pose.RightUpLeg = [-1.42 * liftR + 0.08 * liftL, 0, 0];
+        pose.RightLeg = [1.55 * liftR + 0.06, 0, 0];
         pose.LeftForeArm = [-1.25, 0, 0];
         pose.RightForeArm = [-1.25, 0, 0];
         pose.LeftArm = [-0.75 * liftR + 0.28 * liftL, 0, 0.08];
         pose.RightArm = [-0.75 * liftL + 0.28 * liftR, 0, -0.08];
         setSpineCurve(0.06, -0.08 * Math.sin(phase), 0, -0.06);
-        supportMarkers = [this.markers.toeL, this.markers.toeR];
+        supportMarkers = [this.markers.heelL, this.markers.toeL, this.markers.heelR, this.markers.toeR];
         this.emitPhaseCue('Eleve os joelhos na linha do quadril');
         break;
       }
 
       case 'treadmill': {
+        // Caminhada suave contínua sem pulinhos artificiais
         const kmh = this.treadmillSpeedKmh || 4.5;
         const isJog = kmh >= 5.3;
-        const freq = isJog ? 6.5 : 3.1 + (kmh - 3.0) * 0.85;
-        const stride = isJog ? 0.62 : 0.34 + (kmh - 3.0) * 0.08;
+        const freq = isJog ? 6.2 : 3.0 + (kmh - 3.0) * 0.8;
+        const stride = isJog ? 0.56 : 0.30 + (kmh - 3.0) * 0.07;
         const p = t * freq;
 
         const swingL = Math.sin(p) * stride;
         const swingR = Math.sin(p + Math.PI) * stride;
-        const kneeL = Math.max(0, -Math.cos(p)) * (isJog ? 1.18 : 0.56);
-        const kneeR = Math.max(0, -Math.cos(p + Math.PI)) * (isJog ? 1.18 : 0.56);
+        const kneeL = Math.max(0, -Math.cos(p)) * (isJog ? 1.05 : 0.42);
+        const kneeR = Math.max(0, -Math.cos(p + Math.PI)) * (isJog ? 1.05 : 0.42);
 
-        pose.Hips = [0, 0.06 * Math.sin(p), 0.03 * Math.cos(p)];
+        pose.Hips = [0, 0.05 * Math.sin(p), 0];
         pose.LeftUpLeg = [swingL, 0, 0];
-        pose.LeftLeg = [0.12 + kneeL, 0, 0];
-        pose.LeftFoot = [-0.18 * Math.cos(p), 0, 0];
+        pose.LeftLeg = [0.10 + kneeL, 0, 0];
+        pose.LeftFoot = [-swingL * 0.35 - kneeL * 0.25, 0, 0];
         pose.RightUpLeg = [swingR, 0, 0];
-        pose.RightLeg = [0.12 + kneeR, 0, 0];
-        pose.RightFoot = [0.18 * Math.cos(p), 0, 0];
+        pose.RightLeg = [0.10 + kneeR, 0, 0];
+        pose.RightFoot = [-swingR * 0.35 - kneeR * 0.25, 0, 0];
 
-        setSpineCurve(isJog ? 0.14 : 0.06, -0.09 * Math.sin(p), 0, isJog ? -0.1 : -0.04);
-        pose.LeftForeArm = [isJog ? -1.42 : -0.88, 0, 0];
-        pose.RightForeArm = [isJog ? -1.42 : -0.88, 0, 0];
-        pose.LeftArm = [-swingL * 0.92, 0, 0.08];
-        pose.RightArm = [-swingR * 0.92, 0, -0.08];
+        setSpineCurve(isJog ? 0.12 : 0.05, -0.08 * Math.sin(p), 0, isJog ? -0.08 : -0.03);
+        pose.LeftForeArm = [isJog ? -1.40 : -0.88, 0, 0];
+        pose.RightForeArm = [isJog ? -1.40 : -0.88, 0, 0];
+        pose.LeftArm = [-swingL * 0.9, 0, 0.08];
+        pose.RightArm = [-swingR * 0.9, 0, -0.08];
 
         this.charRoot.position.z = -0.06;
-        const bounce = isJog ? Math.abs(Math.sin(p)) * 0.032 : Math.abs(Math.sin(p)) * 0.008;
-        supportY = TREADMILL_BELT_Y + bounce;
+        // Zero pulinhos na caminhada; contato contínuo na lona da esteira
+        supportY = TREADMILL_BELT_Y;
         supportMarkers = [this.markers.toeL, this.markers.heelL, this.markers.toeR, this.markers.heelR];
         this.emitPhaseCue(`${isJog ? 'Trote' : 'Caminhada'} • ${String(kmh).replace('.', ',')} km/h`);
         break;
@@ -921,62 +1011,116 @@ export class WorkoutScene3D {
       case 'squat':
       case 'chair_squat': {
         const d = smooth01(2.0);
-        pose.LeftUpLeg = [-1.42 * d, 0.12 * d, 0.1];
-        pose.RightUpLeg = [-1.42 * d, -0.12 * d, -0.1];
-        pose.LeftLeg = [1.56 * d, 0, 0];
-        pose.RightLeg = [1.56 * d, 0, 0];
-        pose.LeftFoot = [-0.22 * d, 0, 0];
-        pose.RightFoot = [-0.22 * d, 0, 0];
-        setSpineCurve(0.36 * d, 0, 0, -0.32 * d);
+        const isChair = this.animId === 'chair_squat';
+        // Agachamento controlado com pés travados planos no chão via IK
+        const hz = SEG.hipsToHipZ - (isChair ? 0.24 : 0.21) * d;
+        const hy = 0.8399 - (isChair ? 0.35 : 0.33) * d;
+        this.currentHipsOffset.set(0, -0.35 * d * (isChair ? 1 : 0.94), -(isChair ? 0.24 : 0.21) * d);
+
+        const ik = solveLeg2BoneIK(0.030 - hz, SEG.footH - hy, 0);
+        pose.LeftUpLeg = [ik.hipRx, 0.10 * d, 0.08];
+        pose.RightUpLeg = [ik.hipRx, -0.10 * d, -0.08];
+        pose.LeftLeg = [ik.kneeRx, 0, 0];
+        pose.RightLeg = [ik.kneeRx, 0, 0];
+        pose.LeftFoot = [ik.footRx, 0, 0];
+        pose.RightFoot = [ik.footRx, 0, 0];
+
+        setSpineCurve(0.30 * d, 0, 0, -0.26 * d);
         pose.LeftArm = [-1.25 * d - 0.15, 0, 0.08];
         pose.RightArm = [-1.25 * d - 0.15, 0, -0.08];
-        pose.LeftForeArm = [-0.32 + 0.18 * d, 0, 0];
-        pose.RightForeArm = [-0.32 + 0.18 * d, 0, 0];
-        if (this.animId === 'chair_squat') this.charRoot.position.z = -0.04;
-        this.emitPhaseCue(d > 0.55 ? 'Desça com quadril para trás' : 'Empurre pelos calcanhares');
+        pose.LeftForeArm = [-0.30 + 0.15 * d, 0, 0];
+        pose.RightForeArm = [-0.30 + 0.15 * d, 0, 0];
+        this.emitPhaseCue(isChair ? (d > 0.6 ? 'Toque o assento da cadeira suavemente' : 'Suba empurrando pelos calcanhares') : (d > 0.55 ? 'Desça levando o quadril para trás' : 'Empurre o chão para subir'));
         break;
       }
 
       case 'wall_pushup': {
+        // Pés 100% imóveis no chão; corpo gira em torno dos tornozelos e palmas ficam presas na parede (z=0.645)
         const press = smooth01(2.2);
-        const lean = 0.26 + 0.18 * press;
-        this.charRoot.position.z = -0.03;
-        pose.Hips = [lean, 0, 0];
-        pose.LeftFoot = [-lean * 0.85, 0, 0];
-        pose.RightFoot = [-lean * 0.85, 0, 0];
-        pose.LeftUpLeg = [0, 0, 0.06];
-        pose.RightUpLeg = [0, 0, -0.06];
-        setSpineCurve(0.03, 0, 0, -0.18);
+        const lean = 0.22 + 0.20 * press;
+        const fixedAnkleZ = -0.06;
 
-        pose.LeftShoulder = [0, 0.18 * press, 0];
-        pose.RightShoulder = [0, -0.18 * press, 0];
-        pose.LeftArm = [-1.48 - 0.22 * press, 0, 0.18 * press + 0.08];
-        pose.RightArm = [-1.48 - 0.22 * press, 0, -0.18 * press - 0.08];
-        pose.LeftForeArm = [-0.14 - 1.18 * press, -1.1, 0];
-        pose.RightForeArm = [-0.14 - 1.18 * press, 1.1, 0];
-        pose.LeftHand = [-0.75 + 0.25 * press, 0, 0];
-        pose.RightHand = [-0.75 + 0.25 * press, 0, 0];
-        supportMarkers = [this.markers.toeL, this.markers.toeR];
-        this.emitPhaseCue(press > 0.55 ? 'Aproxime o peito da parede' : 'Empurre com controle');
+        // Calcula deslocamento do tornozelo quando Hips gira por +lean para travar o pé exatamente em fixedAnkleZ
+        const restAnkDz = 0.0298 - (-0.0046); // +0.0344
+        const restAnkDy = 0.0689 - 0.9526;    // -0.8837
+        const rotAnkDz = restAnkDy * Math.sin(lean) + restAnkDz * Math.cos(lean);
+        const rotAnkDy = restAnkDy * Math.cos(lean) - restAnkDz * Math.sin(lean);
+
+        const hipsWorldZ = fixedAnkleZ - rotAnkDz;
+        const hipsWorldY = SEG.footH - rotAnkDy;
+        this.charRoot.position.z = hipsWorldZ - this.hipsRestPos.z;
+        this.charRoot.position.y = hipsWorldY - this.hipsRestPos.y;
+        useSnap = false; // Posição calculada diretamente pelo pivô do tornozelo travado!
+
+        pose.Hips = [lean, 0, 0];
+        pose.LeftFoot = [-lean, 0, 0];
+        pose.RightFoot = [-lean, 0, 0];
+        pose.LeftUpLeg = [0, 0, 0.05];
+        pose.RightUpLeg = [0, 0, -0.05];
+        setSpineCurve(0.02, 0, 0, -0.16);
+
+        // Calcula posição atual do ombro no mundo e resolve IK dos braços até a parede (z=0.645, y=1.28)
+        const shZ = hipsWorldZ + SEG.hipsToShY * Math.sin(lean) + SEG.hipsToShZ * Math.cos(lean);
+        const shY = hipsWorldY + SEG.hipsToShY * Math.cos(lean) - SEG.hipsToShZ * Math.sin(lean);
+        const armIK = solveArm2BoneIK(0.645 - shZ, 1.28 - shY, lean + 0.02);
+
+        pose.LeftShoulder = [0, 0.16 * press, 0];
+        pose.RightShoulder = [0, -0.16 * press, 0];
+        pose.LeftArm = [armIK.armRx, 0, 0.14 * press + 0.06];
+        pose.RightArm = [armIK.armRx, 0, -0.14 * press - 0.06];
+        pose.LeftForeArm = [armIK.foreRx, -1.1, 0];
+        pose.RightForeArm = [armIK.foreRx, 1.1, 0];
+        pose.LeftHand = [-0.65, 0, 0];
+        pose.RightHand = [-0.65, 0, 0];
+        this.emitPhaseCue(press > 0.55 ? 'Aproxime o peito da parede • Pés fixos' : 'Empurre a parede de volta');
         break;
       }
 
       case 'glute_bridge': {
+        // Ombros e pés 100% travados no tapete via IK; SOMENTE o quadril sobe!
         const lift = smooth01(2.0);
-        pose.Hips = [-Math.PI / 2 - 0.34 * lift, 0, 0];
-        setSpineCurve(0.34 * lift, 0, 0, 0.15);
-        pose.LeftUpLeg = [-0.95 + 0.55 * lift, 0, 0.06];
-        pose.RightUpLeg = [-0.95 + 0.55 * lift, 0, -0.06];
-        pose.LeftLeg = [1.88 - 0.4 * lift, 0, 0];
-        pose.RightLeg = [1.88 - 0.4 * lift, 0, 0];
-        pose.LeftFoot = [0.4, 0, 0];
-        pose.RightFoot = [0.4, 0, 0];
-        pose.LeftArm = [0.1, 0, 0.22];
-        pose.RightArm = [0.1, 0, -0.22];
-        this.charRoot.position.z = -0.22;
-        supportY = MAT_TOP_Y;
-        supportMarkers = [this.markers.backChest, this.markers.heelL, this.markers.heelR];
-        this.emitPhaseCue(lift > 0.6 ? 'Contraia os glúteos no alto' : 'Desça devagar até o tapete');
+        const beta = 0.40 * lift; // Inclinação da ponte (0° a 23°)
+        const hipsPitch = -Math.PI / 2 - beta;
+
+        const shZ = -0.35;
+        const shY = MAT_TOP_Y + 0.095;
+        const hipsZ = shZ + SEG.hipsToShY * Math.cos(beta);
+        const hipsY = shY + SEG.hipsToShY * Math.sin(beta);
+
+        // Posição real da articulação do quadril (LeftUpLeg) para o IK da perna
+        const hjY = hipsY + SEG.hipsToHipY * Math.cos(hipsPitch) - SEG.hipsToHipZ * Math.sin(hipsPitch);
+        const hjZ = hipsZ + SEG.hipsToHipY * Math.sin(hipsPitch) + SEG.hipsToHipZ * Math.cos(hipsPitch);
+
+        const fixedAnkZ = 0.44;
+        const fixedAnkY = MAT_TOP_Y + SEG.footH;
+        const dz = fixedAnkZ - hjZ;
+        const dy = fixedAnkY - hjY;
+        const dist = Math.hypot(dz, dy);
+        const cosK = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + SEG.shin ** 2 - dist ** 2) / (2 * SEG.thigh * SEG.shin)));
+        const kneeBend = Math.PI - Math.acos(cosK);
+        const alphaTarget = Math.atan2(dy, dz);
+        const cosA = Math.max(-1, Math.min(1, (SEG.thigh ** 2 + dist ** 2 - SEG.shin ** 2) / (2 * SEG.thigh * dist)));
+        const a = Math.acos(cosA);
+        const thighWorldFromPlusZ = alphaTarget + a;
+
+        const uplegRx = beta - thighWorldFromPlusZ;
+        const footRx = (Math.PI / 2 + beta) - uplegRx - kneeBend;
+
+        this.charRoot.position.z = hipsZ - this.hipsRestPos.z;
+        this.charRoot.position.y = hipsY - this.hipsRestPos.y;
+        useSnap = false;
+
+        pose.Hips = [hipsPitch, 0, 0];
+        setSpineCurve(beta, 0, 0, 0.15);
+        pose.LeftUpLeg = [uplegRx, 0, 0.05];
+        pose.RightUpLeg = [uplegRx, 0, -0.05];
+        pose.LeftLeg = [kneeBend, 0, 0];
+        pose.RightLeg = [kneeBend, 0, 0];
+        pose.LeftFoot = [footRx, 0, 0];
+        pose.RightFoot = [footRx, 0, 0];
+        pose.LeftArm = [0.08, 0, 0.22];
+        pose.RightArm = [0.08, 0, -0.22];
+        this.emitPhaseCue(lift > 0.6 ? 'Eleve só o quadril e contraia glúteos' : 'Desça o quadril devagar • Pés firmes');
         break;
       }
 
@@ -984,7 +1128,6 @@ export class WorkoutScene3D {
         const cycle = (t * 0.8) % 2;
         const activeLeftArm = cycle < 1;
         const p = cycle % 1;
-        // Curva suave com breve sustentação no topo da extensão
         const ext = Math.sin(Math.pow(Math.sin(p * Math.PI), 0.7) * (Math.PI / 2));
 
         pose.Hips = [Math.PI / 2, 0, 0];
@@ -1047,25 +1190,26 @@ export class WorkoutScene3D {
       }
 
       case 'knee_plank': {
-        pose.Hips = [Math.PI / 2 - 0.32 + breath * 0.012, 0, 0];
+        // Cotovelos/antebraços no chão E joelhos apoiados no tapete simultaneamente (alpha=11°)
+        const alpha = 0.192;
+        pose.Hips = [Math.PI / 2 - alpha + breath * 0.008, 0, 0];
         setSpineCurve(0, 0, 0, -0.34);
-        pose.LeftArm = [-(Math.PI / 2 - 0.32), 0, 0];
-        pose.RightArm = [-(Math.PI / 2 - 0.32), 0, 0];
-        pose.LeftForeArm = [0, -1.15, 0];
-        pose.RightForeArm = [0, 1.15, 0];
-        pose.LeftHand = [-Math.PI / 2, 0, 0];
-        pose.RightHand = [-Math.PI / 2, 0, 0];
-        pose.LeftLeg = [1.05, 0, 0];
-        pose.RightLeg = [1.05, 0, 0];
-        pose.LeftUpLeg = [0, 0, 0.05];
-        pose.RightUpLeg = [0, 0, -0.05];
+
+        // Braços verticais dos ombros aos cotovelos; antebraços apoiados à frente no tapete
+        pose.LeftArm = [-(Math.PI / 2 - alpha), 0, -0.08];
+        pose.RightArm = [-(Math.PI / 2 - alpha), 0, 0.08];
+        pose.LeftForeArm = [-Math.PI / 2, -0.45, 0];
+        pose.RightForeArm = [-Math.PI / 2, 0.45, 0];
+
+        // Coxas em +0.11 rad para ambos os joelhos tocarem o tapete junto com os cotovelos
+        pose.LeftUpLeg = [0.11, 0, 0.04];
+        pose.RightUpLeg = [0.11, 0, -0.04];
+        pose.LeftLeg = [1.32, 0, 0];
+        pose.RightLeg = [1.32, 0, 0];
+
         supportY = MAT_TOP_Y;
-        supportMarkers = [
-          this.markers.handL, this.markers.handR,
-          this.markers.palmL, this.markers.palmR,
-          this.markers.kneeL, this.markers.kneeR
-        ];
-        this.emitPhaseCue('Core ativado • Corpo alinhado');
+        supportMarkers = [this.markers.elbowBotL, this.markers.elbowBotR, this.markers.kneeL, this.markers.kneeR];
+        this.emitPhaseCue('Cotovelos e joelhos apoiados no tapete');
         break;
       }
 
@@ -1093,25 +1237,26 @@ export class WorkoutScene3D {
       }
 
       case 'side_plank': {
-        const tilt = 0.175;
+        // Ângulo exato (0.253 rad = 14.5°) onde cotovelo de apoio e pé de baixo encostam juntos no tapete
+        const tilt = 0.253;
         if (!isLeft) {
-          pose.Hips = [0, 0, Math.PI / 2 - tilt + breath * 0.01];
+          pose.Hips = [0, 0, Math.PI / 2 - tilt + breath * 0.008];
           setSpineCurve(0, 0, -0.02, 0);
           pose.RightArm = [0, 0, -(Math.PI / 2 - tilt)];
           pose.RightForeArm = [-Math.PI / 2, 0, 0];
           pose.LeftArm = [0, 0, 0.24];
           pose.LeftForeArm = [-0.65, 0, 0];
-          supportMarkers = [this.markers.forearmR, this.markers.sideAnkleR];
-          this.emitPhaseCue('Prancha lateral direita • Quadril elevado');
+          supportMarkers = [this.markers.sideElbowR, this.markers.sideAnkleR];
+          this.emitPhaseCue('Prancha lateral direita • Pé e cotovelo no tapete');
         } else {
-          pose.Hips = [0, 0, -(Math.PI / 2 - tilt + breath * 0.01)];
+          pose.Hips = [0, 0, -(Math.PI / 2 - tilt + breath * 0.008)];
           setSpineCurve(0, 0, 0.02, 0);
           pose.LeftArm = [0, 0, Math.PI / 2 - tilt];
           pose.LeftForeArm = [-Math.PI / 2, 0, 0];
           pose.RightArm = [0, 0, -0.24];
           pose.RightForeArm = [-0.65, 0, 0];
-          supportMarkers = [this.markers.forearmL, this.markers.sideAnkleL];
-          this.emitPhaseCue('Prancha lateral esquerda • Quadril elevado');
+          supportMarkers = [this.markers.sideElbowL, this.markers.sideAnkleL];
+          this.emitPhaseCue('Prancha lateral esquerda • Pé e cotovelo no tapete');
         }
         supportY = MAT_TOP_Y;
         break;
@@ -1120,7 +1265,7 @@ export class WorkoutScene3D {
       case 'lateral_leg_raise': {
         const lift = smooth01(2.2);
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
-        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR] : [this.markers.heelL, this.markers.toeL];
+        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
         pose[up] = [0, 0, sgn * (0.06 + 0.66 * lift)];
         pose.LeftArm = [0, 0, 0.48];
         pose.RightArm = [0, 0, -0.48];
@@ -1132,16 +1277,20 @@ export class WorkoutScene3D {
       }
 
       case 'calf_raise': {
-        const rise = smooth01(2.4);
-        pose.LeftFoot = [0.46 * rise, 0, 0];
-        pose.RightFoot = [0.46 * rise, 0, 0];
+        // Os DOIS pés sobem juntos até a ponta do pé (dedos ficam no chão com flexão de ToeBase!)
+        const rise = smooth01(2.3);
+        const ang = 0.46 * rise;
+        pose.LeftFoot = [ang, 0, 0];
+        pose.RightFoot = [ang, 0, 0];
+        pose.LeftToeBase = [-ang, 0, 0];
+        pose.RightToeBase = [-ang, 0, 0];
         pose.LeftUpLeg = [0, 0, 0.05];
         pose.RightUpLeg = [0, 0, -0.05];
         pose.LeftArm = [0, 0, 0.12];
         pose.RightArm = [0, 0, -0.12];
         setSpineCurve(0, 0, 0, 0);
-        supportMarkers = [this.markers.toeL, this.markers.toeR];
-        this.emitPhaseCue(rise > 0.6 ? 'Sustente na ponta dos pés' : 'Desça suavemente');
+        supportMarkers = [this.markers.toeL, this.markers.toeR, this.markers.toeTipL, this.markers.toeTipR];
+        this.emitPhaseCue(rise > 0.6 ? 'Suba os dois calcanhares na ponta dos pés' : 'Desça os calcanhares até o chão');
         break;
       }
 
@@ -1158,7 +1307,6 @@ export class WorkoutScene3D {
         pose.LeftForeArm = [-0.95, 0, 0];
         pose.RightForeArm = [-0.95, 0, 0];
         setSpineCurve(0.06, 0, 0, -0.06);
-        supportMarkers = [this.markers.toeL, this.markers.toeR];
         this.emitPhaseCue('Passos laterais em ritmo fluido');
         break;
       }
@@ -1172,7 +1320,7 @@ export class WorkoutScene3D {
         pose.RightArm = [-0.55, 0, -0.22];
         pose.LeftForeArm = [-1.52, 0, 0];
         pose.RightForeArm = [-1.52, 0, 0];
-        this.emitPhaseCue('Rotação controlada • Quadril estável');
+        this.emitPhaseCue('Rotação controlada • Pés firmes');
         break;
       }
 
@@ -1193,47 +1341,53 @@ export class WorkoutScene3D {
       }
 
       case 'quad_stretch': {
-        const pulse = 0.025 * breath;
+        // Mão realmente segura o tornozelo/pé atrás (distância calculada pelo solver!)
+        const pulse = 0.02 * breath;
         const up = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const knee = isLeft ? 'LeftLeg' : 'RightLeg';
+        const foot = isLeft ? 'LeftFoot' : 'RightFoot';
         const arm = isLeft ? 'LeftArm' : 'RightArm';
         const fore = isLeft ? 'LeftForeArm' : 'RightForeArm';
         const oppArm = isLeft ? 'RightArm' : 'LeftArm';
-        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR] : [this.markers.heelL, this.markers.toeL];
+        supportMarkers = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[up] = [0.26 + pulse, 0, 0];
-        pose[knee] = [2.32 + pulse, 0, 0];
+        pose[up] = [0.22 + pulse, 0, 0];
+        pose[knee] = [2.46 + pulse, 0, 0];
+        pose[foot] = [0.35, 0, 0];
         setSpineCurve(0.06, 0, 0, -0.06);
-        pose[arm] = [0.68, 0, sgn * 0.08];
-        pose[fore] = [-0.18, 0, 0];
-        pose[oppArm] = [0, 0, -sgn * 0.28];
-        this.emitPhaseCue(isLeft ? 'Alongue o quadríceps esquerdo' : 'Alongue o quadríceps direito');
+        pose[arm] = [0.40, 0, -sgn * 0.14];
+        pose[fore] = [-0.22, 0, 0];
+        pose[oppArm] = [0, 0, -sgn * 0.25];
+        this.emitPhaseCue(isLeft ? 'Segure o pé esquerdo atrás • Alongue a coxa' : 'Segure o pé direito atrás • Alongue a coxa');
         break;
       }
 
       case 'hamstring_stretch': {
-        const pulse = 0.025 * breath;
+        // Perna estendida apoiada sobre o banco à frente + mãos na cintura, igual à foto de referência!
+        const pulse = 0.03 * breath;
         const fUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const fKnee = isLeft ? 'LeftLeg' : 'RightLeg';
         const fFoot = isLeft ? 'LeftFoot' : 'RightFoot';
-        const bUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
-        const bKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const bMarker = isLeft ? [this.markers.heelR, this.markers.toeR, this.markers.toeTipR] : [this.markers.heelL, this.markers.toeL, this.markers.toeTipL];
 
-        pose[fUp] = [-0.62, 0, 0];
+        pose[fUp] = [-1.04, 0, 0];
         pose[fKnee] = [0.04, 0, 0];
-        pose[fFoot] = [-0.25, 0, 0];
-        pose[bUp] = [0.26, 0, 0];
-        pose[bKnee] = [0.44, 0, 0];
+        pose[fFoot] = [-0.36, 0, 0]; // Ponta do pé para cima apoiando o calcanhar no banco
 
-        setSpineCurve(0.76 + pulse, 0, 0, -0.35);
-        pose.LeftArm = [-0.92, 0, 0.05];
-        pose.RightArm = [-0.92, 0, -0.05];
-        this.emitPhaseCue('Incline a partir do quadril • Coluna alinhada');
+        setSpineCurve(0.34 + pulse, 0, 0, -0.22);
+        // Mãos na cintura
+        pose.LeftArm = [0, 0, 0.42];
+        pose.LeftForeArm = [-0.35, 0, -0.75];
+        pose.RightArm = [0, 0, -0.42];
+        pose.RightForeArm = [-0.35, 0, 0.75];
+        supportMarkers = bMarker;
+        this.emitPhaseCue('Calcanhar apoiado no banco • Incline mantendo a coluna reta');
         break;
       }
 
       case 'calf_stretch': {
-        const pulse = 0.03 * breath;
+        // Alongamento de panturrilha: ambos os pés 100% planos no chão, perna de trás estendida
+        const pulse = 0.025 * breath;
         const bUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
         const bKnee = isLeft ? 'LeftLeg' : 'RightLeg';
         const bFoot = isLeft ? 'LeftFoot' : 'RightFoot';
@@ -1241,18 +1395,18 @@ export class WorkoutScene3D {
         const fKnee = isLeft ? 'RightLeg' : 'LeftLeg';
         const fFoot = isLeft ? 'RightFoot' : 'LeftFoot';
 
-        pose[fUp] = [-0.64 - pulse, 0, 0];
-        pose[fKnee] = [0.74 + pulse, 0, 0];
-        pose[fFoot] = [-0.12, 0, 0];
+        pose[fUp] = [-0.62 - pulse, 0, 0];
+        pose[fKnee] = [0.85 + pulse, 0, 0];
+        pose[fFoot] = [-0.23, 0, 0];
 
-        pose[bUp] = [0.46, 0, 0];
+        pose[bUp] = [0.42, 0, 0];
         pose[bKnee] = [0.04, 0, 0];
-        pose[bFoot] = [-0.45, 0, 0];
+        pose[bFoot] = [-0.46, 0, 0];
 
-        setSpineCurve(0.12, 0, 0, -0.1);
-        pose.LeftArm = [-0.24, 0, 0.1];
-        pose.RightArm = [-0.24, 0, -0.1];
-        this.emitPhaseCue('Calcanhar de trás pressionado no chão');
+        setSpineCurve(0.10, 0, 0, -0.08);
+        pose.LeftArm = [-0.20, 0, 0.12];
+        pose.RightArm = [-0.20, 0, -0.12];
+        this.emitPhaseCue('Alongamento: calcanhar de trás firme no chão');
         break;
       }
 
@@ -1263,10 +1417,12 @@ export class WorkoutScene3D {
         const bKneeMarker = isLeft ? this.markers.kneeL : this.markers.kneeR;
         const fUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
         const fKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const fFoot = isLeft ? 'RightFoot' : 'LeftFoot';
         const fHeelMarker = isLeft ? this.markers.heelR : this.markers.heelL;
 
         pose[fUp] = [-1.62 - pulse, 0, 0];
         pose[fKnee] = [1.62 + pulse, 0, 0];
+        pose[fFoot] = [0, 0, 0];
         pose[bUp] = [0.22 + pulse, 0, 0];
         pose[bKnee] = [1.35, 0, 0];
 
@@ -1282,17 +1438,21 @@ export class WorkoutScene3D {
       }
 
       case 'chest_stretch': {
-        const pulse = 0.035 * breath;
-        this.propPost.position.x = isLeft ? 1.54 : 0;
+        const pulse = 0.03 * breath;
         const arm = isLeft ? 'LeftArm' : 'RightArm';
+        const fore = isLeft ? 'LeftForeArm' : 'RightForeArm';
+        const hand = isLeft ? 'LeftHand' : 'RightHand';
         const other = isLeft ? 'RightArm' : 'LeftArm';
 
-        pose[arm] = [0.24 + pulse, 0, sgn * 1.50];
+        // Braço estendido na altura do ombro; pilar acompanha exatamente a palma!
+        pose[arm] = [0.18, 0, sgn * 1.48];
+        pose[fore] = [0, sgn * -0.4, 0];
+        pose[hand] = [0, 0, sgn * 0.9]; // Palma aberta voltada para fora contra o pilar
         pose[other] = [0, 0, -sgn * 0.16];
         pose.LeftUpLeg = [0, 0, 0.07];
         pose.RightUpLeg = [0, 0, -0.07];
-        setSpineCurve(0, sgn * (-0.34 - pulse), 0, 0);
-        this.emitPhaseCue('Abra o peitoral respirando profundamente');
+        setSpineCurve(0, sgn * (-0.30 - pulse), 0, 0);
+        this.emitPhaseCue('Palma apoiada na parede • Abra o peitoral');
         break;
       }
 
@@ -1310,16 +1470,18 @@ export class WorkoutScene3D {
       }
     }
 
-    // Aplica cadeia de quatérnios top-down preservando eixos anatômicos exatos do GLB
     if (this.blendAlpha < 1) {
       this.blendAlpha = Math.min(1, this.blendAlpha + dt * 3.4);
     }
     const smoothBlend = this.blendAlpha * this.blendAlpha * (3 - 2 * this.blendAlpha);
 
-    // Posição de Hips com suavização
-    const blendedOffset = this._vTmp.lerpVectors(this.prevHipsOffset, this.currentHipsOffset, smoothBlend);
-    if (this.bones.Hips) {
-      this.bones.Hips.position.copy(this.hipsRestPos).add(blendedOffset);
+    if (useSnap) {
+      const blendedOffset = this._vTmp.lerpVectors(this.prevHipsOffset, this.currentHipsOffset, smoothBlend);
+      if (this.bones.Hips) {
+        this.bones.Hips.position.copy(this.hipsRestPos).add(blendedOffset);
+      }
+    } else if (this.bones.Hips) {
+      this.bones.Hips.position.copy(this.hipsRestPos);
     }
 
     for (const name of BONE_ORDER) {
@@ -1348,7 +1510,20 @@ export class WorkoutScene3D {
       }
     }
 
-    this.snapToSupport(supportY, supportMarkers);
+    if (useSnap) {
+      this.snapToSupport(supportY, supportMarkers);
+    } else {
+      this.charRoot.updateMatrixWorld(true);
+    }
+
+    // Posiciona o pilar exatamente encostado na palma da mão durante Alongamento Peitoral
+    if (this.animId === 'chest_stretch' && this.propPost.visible) {
+      const palmMarker = isLeft ? this.markers.handL : this.markers.handR;
+      if (palmMarker) {
+        palmMarker.getWorldPosition(this._vTmp2);
+        this.propPost.position.set(this._vTmp2.x + sgn * 0.068, 0, this._vTmp2.z);
+      }
+    }
   }
 
   animate() {
