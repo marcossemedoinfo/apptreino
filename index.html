@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AppTreino 3D — Planilha Interativa de Treino &amp; Alongamento</title>
+  <meta name="description" content="Aplicativo completo de treino semanal com demonstração interativa em 3D, cronômetros individuais por exercício e progressão na esteira." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f172a'/%3E%3Cpath d='M16 32h8l5-14 8 28 5-14h6' fill='none' stroke='%2310b981' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">3D</div>
+      <div>
+        <h1>AppTreino <span class="accent-text">3D</span></h1>
+        <p id="profile-tagline" class="brand-sub">Esteira + Exercícios Complementares</p>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="profile-switcher" role="group" aria-label="Selecionar perfil">
+        <button class="profile-btn active" data-profile="marcos" type="button">
+          <span class="dot"></span> Marcos
+        </button>
+        <button class="profile-btn" data-profile="esposa" type="button">
+          Esposa <span class="badge-soon">Em breve</span>
+        </button>
+      </div>
+
+      <div class="week-selector" role="group" aria-label="Semana de evolução da esteira">
+        <span class="week-label">Esteira:</span>
+        <button class="week-btn active" data-week="1" type="button">S1</button>
+        <button class="week-btn" data-week="2" type="button">S2</button>
+        <button class="week-btn" data-week="3" type="button">S3</button>
+        <button class="week-btn" data-week="4" type="button">S4</button>
+      </div>
+
+      <button id="btn-mute" class="icon-btn" type="button" title="Ativar/Desativar sons dos cronômetros">
+        🔊 <span class="hide-sm">Som</span>
+      </button>
+    </div>
+  </header>
+
+  <nav id="day-nav" class="day-nav" aria-label="Dias da semana"></nav>
+
+  <!-- Conteúdo principal para perfis ativos -->
+  <main id="main-workspace" class="workspace">
+    <!-- Coluna Esquerda: Estúdio 3D + Coaching -->
+    <section class="stage-column" aria-label="Demonstração em 3D">
+      <div class="stage-card">
+        <div class="stage-header">
+          <div>
+            <div class="stage-badges">
+              <span id="active-category-badge" class="cat-badge">Exercício</span>
+              <span id="active-prescription-badge" class="rx-badge">2 x 12</span>
+              <span id="active-treadmill-badge" class="tm-badge hidden">4,5 km/h</span>
+            </div>
+            <h2 id="active-exercise-title">Agachamento</h2>
+          </div>
+
+          <div id="stage-side-toggle" class="side-toggle hidden" role="group" aria-label="Lado demonstrado em 3D">
+            <button class="side-btn active" data-side="right" type="button">Direito</button>
+            <button class="side-btn" data-side="left" type="button">Esquerdo</button>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <div id="canvas-3d" class="canvas-3d"></div>
+
+          <!-- Cronômetro espelhado sobre o palco 3D para visualização fácil durante o exercício -->
+          <div id="stage-live-hud" class="stage-live-hud">
+            <div class="hud-timer-meta">
+              <span id="hud-mode-label">CRONÔMETRO</span>
+              <strong id="hud-timer-value">00:00</strong>
+            </div>
+            <button id="hud-timer-toggle" class="hud-play-btn" type="button" title="Iniciar ou pausar cronômetro deste item">
+              ▶
+            </button>
+          </div>
+
+          <div class="canvas-hint">Arraste para girar 360° &bull; Scroll/Pinça para zoom</div>
+        </div>
+
+        <div class="viewport-toolbar">
+          <div class="cam-group" role="group" aria-label="Ângulos da câmera 3D">
+            <button class="tool-btn cam-btn active" data-cam="threeQuarter" type="button">3/4</button>
+            <button class="tool-btn cam-btn" data-cam="front" type="button">Frente</button>
+            <button class="tool-btn cam-btn" data-cam="side" type="button">Lado</button>
+            <button class="tool-btn cam-btn" data-cam="top" type="button">Topo</button>
+          </div>
+
+          <div class="playback-group">
+            <button id="btn-3d-play" class="tool-btn active" type="button">⏸ 3D</button>
+            <button class="tool-btn speed-btn" data-speed="0.5" type="button">0.5x</button>
+            <button class="tool-btn speed-btn active" data-speed="1" type="button">1x</button>
+            <button class="tool-btn speed-btn" data-speed="1.5" type="button">1.5x</button>
+            <button id="btn-muscle-hl" class="tool-btn active" type="button" title="Destacar músculos trabalhados">💪</button>
+          </div>
+        </div>
+
+        <div class="coaching-box">
+          <div class="muscle-row">
+            <span class="muscle-label">Foco muscular:</span>
+            <span id="active-muscles" class="muscle-value">Quadríceps, Glúteos e Core</span>
+          </div>
+          <ol id="active-steps" class="steps-list"></ol>
+          <div class="posture-tip">
+            <strong>Dica de postura:</strong> <span id="active-tip"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Coluna Direita: Planilha do Dia + Cronômetros Individuais -->
+    <section class="workout-column" aria-label="Treino e cronômetros">
+      <div class="day-hero">
+        <div class="day-hero-top">
+          <div>
+            <span id="day-schedule-pill" class="schedule-pill">Manhã – 07h às 08h</span>
+            <h2 id="day-title">Segunda-feira — Corpo Inteiro</h2>
+          </div>
+          <div class="day-hero-actions">
+            <button id="btn-guided-next" class="primary-btn" type="button">▶ Próxima Etapa</button>
+            <button id="btn-reset-day" class="ghost-btn" type="button" title="Zerar marcações e cronômetros deste dia">↺ Reset Dia</button>
+          </div>
+        </div>
+
+        <div class="day-metrics">
+          <div class="metric-box">
+            <span>Progresso do dia</span>
+            <strong id="day-progress-text">0 / 16 concluídos</strong>
+            <div class="progress-track">
+              <div id="day-progress-fill" class="progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="metric-box compact">
+            <span>Tempo cronometrado</span>
+            <strong id="day-total-time">00:00</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo dinâmico das seções do dia -->
+      <div id="sections-container" class="sections-container"></div>
+
+      <!-- Cards de Evolução, Resumo da Semana e Dicas -->
+      <div class="overview-grid">
+        <article class="info-card">
+          <div class="info-card-head">
+            <h3>📈 Evolução da Esteira (4 Semanas)</h3>
+            <span id="active-week-pill" class="mini-pill">Semana 1 ativa</span>
+          </div>
+          <table class="evolution-table">
+            <thead>
+              <tr>
+                <th>Semana</th>
+                <th>Caminhada</th>
+                <th>Trote</th>
+              </tr>
+            </thead>
+            <tbody id="evolution-tbody"></tbody>
+          </table>
+          <p class="info-note">✅ Se estiver confortável, pode aumentar a inclinação (0–1%) na caminhada.</p>
+        </article>
+
+        <article class="info-card">
+          <div class="info-card-head">
+            <h3>📋 Resumo da Semana</h3>
+            <span id="weekly-done-count" class="mini-pill">0/7 dias</span>
+          </div>
+          <ul id="weekly-summary-list" class="weekly-list"></ul>
+          <div class="objective-box">
+            <strong>🏆 Objetivo:</strong> <span id="profile-objective"></span>
+          </div>
+        </article>
+
+        <article class="info-card full-span">
+          <h3>💡 Dicas Importantes</h3>
+          <ul id="tips-list" class="tips-list"></ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Tela de espera do perfil da esposa -->
+  <section id="profile-placeholder" class="placeholder-view hidden">
+    <div class="placeholder-card">
+      <div class="placeholder-badge">Perfil Pronto</div>
+      <h2>Treino da Esposa — Aguardando Planilha</h2>
+      <p>
+        Este espaço já está preparado com demonstração 3D e cronômetros individuais por exercício e alongamento.
+        Assim que você enviar a imagem do treino da sua esposa, vou carregar toda a rotina semanal dela aqui com o perfil próprio!
+      </p>
+      <button id="btn-back-marcos" class="primary-btn" type="button">← Voltar para o Treino do Marcos</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
