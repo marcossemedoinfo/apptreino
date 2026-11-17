@@ -401,6 +401,150 @@ export const EXERCISE_CATALOG = {
     ],
     tip: 'Mantenha o ombro relaxado para baixo e evite forçar além de um alongamento confortável.'
   },
+  stiff: {
+    id: 'stiff',
+    name: 'Stiff sem peso',
+    category: 'exercicio',
+    anim: 'stiff',
+    prop: 'none',
+    defaultCamera: 'side',
+    muscles: ['hamstrings', 'glutes', 'back'],
+    musclesLabel: 'Posteriores de Coxa, Glúteos e Lombar',
+    steps: [
+      'Fique em pé com os pés na largura do quadril e os joelhos levemente destravados.',
+      'Incline o tronco para frente levando o quadril para trás enquanto as mãos descem rentes às pernas.',
+      'Suba contraindo os glúteos mantendo a coluna sempre reta.'
+    ],
+    tip: 'Não arredonde a lombar; o movimento parte do quadril para trás.'
+  },
+  side_lying_leg_raise: {
+    id: 'side_lying_leg_raise',
+    name: 'Elevação lateral de perna',
+    category: 'exercicio',
+    anim: 'side_lying_leg_raise',
+    prop: 'mat',
+    defaultCamera: 'front',
+    muscles: ['glutes', 'hips'],
+    musclesLabel: 'Glúteo Médio e Lateral da Coxa',
+    steps: [
+      'Deite-se de lado no tapete apoiando a cabeça no braço estendido e alinhando o corpo.',
+      'Eleve a perna de cima estendida de forma controlada sem girar o quadril para trás.',
+      'Desça devagar sem encostar totalmente e troque de lado após as repetições.'
+    ],
+    tip: 'Mantenha a ponta do pé voltada para frente e o abdômen contraído.'
+  },
+  reverse_lunge: {
+    id: 'reverse_lunge',
+    name: 'Afundo para trás',
+    category: 'exercicio',
+    anim: 'reverse_lunge',
+    prop: 'none',
+    defaultCamera: 'side',
+    muscles: ['quads', 'glutes', 'hamstrings'],
+    musclesLabel: 'Coxas (Quadríceps) e Glúteos',
+    steps: [
+      'Em pé com a postura alinhada, dê um passo largo para trás apoiando a ponta do pé.',
+      'Flexione os dois joelhos descendo o quadril até cerca de 90° sem bater o joelho de trás no chão.',
+      'Empurre pelo calcanhar da perna da frente para retornar à posição inicial.'
+    ],
+    tip: 'Mantenha o tronco ereto e o joelho da frente alinhado com o pé.'
+  },
+  wall_sit: {
+    id: 'wall_sit',
+    name: 'Agachamento na parede',
+    category: 'exercicio',
+    anim: 'wall_sit',
+    prop: 'wall_back',
+    defaultCamera: 'side',
+    muscles: ['quads', 'glutes', 'core'],
+    musclesLabel: 'Quadríceps, Glúteos e Resistência Isométrica',
+    steps: [
+      'Encoste toda a coluna na parede e dê um passo à frente afastando os pés na largura dos ombros.',
+      'Deslize o corpo para baixo até formar um ângulo próximo de 90° nos joelhos, como se estivesse sentada.',
+      'Sustente a posição pelo tempo marcado respirando de forma constante.'
+    ],
+    tip: 'Não apoie as mãos nos joelhos e mantenha os calcanhares firmes no chão.'
+  },
+  plank_full: {
+    id: 'plank_full',
+    name: 'Prancha',
+    category: 'exercicio',
+    anim: 'plank_full',
+    prop: 'mat',
+    defaultCamera: 'side',
+    muscles: ['core', 'shoulders', 'glutes'],
+    musclesLabel: 'Abdômen, Core Profundo e Ombros',
+    steps: [
+      'Apoie os antebraços e cotovelos no tapete alinhados abaixo dos ombros.',
+      'Estenda as duas pernas para trás apoiando as pontas dos pés, formando uma linha reta.',
+      'Sustente de 15 a 20 segundos contraindo abdômen e glúteos.'
+    ],
+    tip: 'Não deixe o quadril cair para baixo nem subir demais.'
+  },
+  seated_hamstring_stretch: {
+    id: 'seated_hamstring_stretch',
+    name: 'Posterior da coxa (pescoço da perna)',
+    category: 'alongamento',
+    anim: 'seated_hamstring_stretch',
+    prop: 'mat',
+    defaultCamera: 'side',
+    muscles: ['hamstrings', 'calves'],
+    musclesLabel: 'Posteriores de Coxa e Panturrilha',
+    steps: [
+      'Sente-se no tapete com uma perna estendida à frente e o outro pé recolhido na parte interna da coxa.',
+      'Incline o tronco à frente levando as mãos em direção à ponta do pé estendido.',
+      'Mantenha de 20 a 30 segundos em cada perna respirando fundo.'
+    ],
+    tip: 'Vá até onde sentir alongar confortavelmente sem arredondar demais os ombros.'
+  },
+  seated_glute_hug: {
+    id: 'seated_glute_hug',
+    name: 'Glúteos',
+    category: 'alongamento',
+    anim: 'seated_glute_hug',
+    prop: 'mat',
+    defaultCamera: 'threeQuarter',
+    muscles: ['glutes', 'hips'],
+    musclesLabel: 'Glúteos e Região Lombar',
+    steps: [
+      'Sente-se no tapete com os joelhos dobrados e os pés apoiados.',
+      'Abrace as pernas trazendo os joelhos suavemente em direção ao peito mantendo a coluna alinhada.',
+      'Segure por 20 a 30 segundos respirando devagar.'
+    ],
+    tip: 'Mantenha os ombros relaxados longe das orelhas.'
+  },
+  wall_calf_stretch: {
+    id: 'wall_calf_stretch',
+    name: 'Panturrilha',
+    category: 'alongamento',
+    anim: 'wall_calf_stretch',
+    prop: 'wall',
+    defaultCamera: 'side',
+    muscles: ['calves'],
+    musclesLabel: 'Alongamento de Panturrilha na Parede',
+    steps: [
+      'Apoie as duas mãos na parede à frente e dê um passo para trás com uma perna.',
+      'Dobre o joelho da frente mantendo a perna de trás estendida e o calcanhar bem colado no chão.',
+      'Sustente de 20 a 30 segundos em cada perna.'
+    ],
+    tip: 'Não deixe o calcanhar da perna de trás levantar do chão.'
+  },
+  shoulder_cross_stretch: {
+    id: 'shoulder_cross_stretch',
+    name: 'Ombros e costas',
+    category: 'alongamento',
+    anim: 'shoulder_cross_stretch',
+    prop: 'none',
+    defaultCamera: 'front',
+    muscles: ['shoulders', 'back'],
+    musclesLabel: 'Ombros (Deltóides) e Parte Superior das Costas',
+    steps: [
+      'Em pé, passe um braço estendido na frente do peito na altura dos ombros.',
+      'Com a outra mão, pressione suavemente o braço próximo ao cotovelo contra o peito.',
+      'Sustente de 20 a 30 segundos em cada braço.'
+    ],
+    tip: 'Mantenha o ombro relaxado para baixo sem girá-lo para cima.'
+  },
   rest_day: {
     id: 'rest_day',
     name: 'Dia de Descanso',
@@ -625,14 +769,104 @@ export const PROFILES = {
       'Respeite seus limites e celebre suas conquistas!'
     ]
   },
-  esposa: {
-    id: 'esposa',
-    name: 'Esposa',
-    badge: 'Em breve',
-    title: 'Planilha da Esposa',
-    subtitle: 'Pronta para receber o treino dela',
-    tagline: 'Envie a imagem do treino da sua esposa para configurar tudo em 3D aqui!',
+  gabi: {
+    id: 'gabi',
+    name: 'Gabi',
+    badge: 'Desafio 15 Dias',
+    title: 'Meu Desafio Fitness – 15 Dias',
+    subtitle: 'Treine, se cuide e celebre cada conquista!',
+    tagline: 'Emagrecer, fortalecer as coxas, manter os glúteos firmes e fortalecer o abdômen.',
     theme: 'rose',
-    ready: false
+    ready: true,
+    treadmillGuide: [
+      'Aquecimento: 3–5 min (caminhada leve)',
+      'Caminhada moderada (pelo tempo do dia)',
+      'Desaquecimento: 3–5 min'
+    ],
+    warmup: null,
+    cooldown: {
+      title: 'Alongamentos — Faça após os treinos ou quando sentir necessidade',
+      durationLabel: '5 alongamentos',
+      items: [
+        { uid: 'g_c_ham', exerciseId: 'seated_hamstring_stretch', prescription: '20–30s cada perna', timerType: 'countdown', seconds: 30, sets: 1, perSide: true },
+        { uid: 'g_c_quad', exerciseId: 'quad_stretch', prescription: '20–30s cada perna', timerType: 'countdown', seconds: 30, sets: 1, perSide: true },
+        { uid: 'g_c_glute', exerciseId: 'seated_glute_hug', prescription: '20–30s cada perna', timerType: 'countdown', seconds: 30, sets: 1, perSide: true },
+        { uid: 'g_c_calf', exerciseId: 'wall_calf_stretch', prescription: '20–30s cada perna', timerType: 'countdown', seconds: 30, sets: 1, perSide: true },
+        { uid: 'g_c_sh', exerciseId: 'shoulder_cross_stretch', prescription: '20–30s cada braço', timerType: 'countdown', seconds: 30, sets: 1, perSide: true }
+      ]
+    },
+    days: (() => {
+      const makeTreadmill = (dayNum, totalMin, light = false) => {
+        const warm = 4;
+        const cool = 4;
+        const main = totalMin - warm - cool;
+        const speed = light ? 4.0 : 4.5;
+        return {
+          durationMin: totalMin,
+          stages: [
+            { uid: `g${dayNum}_t1`, minutes: warm, speed: 3.0, kind: 'aquecimento', label: 'Aquecimento (caminhada leve)' },
+            { uid: `g${dayNum}_t2`, minutes: main, speed, kind: light ? 'caminhada_leve' : 'caminhada', label: light ? 'Caminhada leve contínua' : 'Caminhada moderada' },
+            { uid: `g${dayNum}_t3`, minutes: cool, speed: 3.0, kind: 'desaquecimento', label: 'Desaquecimento' }
+          ]
+        };
+      };
+      const treinoA = (d) => [
+        { uid: `g${d}_a1`, exerciseId: 'squat', prescription: '2 x 12 repetições', timerType: 'stopwatch', sets: 2, reps: 12, perSide: false },
+        { uid: `g${d}_a2`, exerciseId: 'stiff', prescription: '2 x 12 repetições', timerType: 'stopwatch', sets: 2, reps: 12, perSide: false },
+        { uid: `g${d}_a3`, exerciseId: 'side_lying_leg_raise', prescription: '2 x 12 por lado', timerType: 'stopwatch', sets: 2, reps: 12, perSide: true },
+        { uid: `g${d}_a4`, exerciseId: 'calf_raise', prescription: '2 x 15 repetições', timerType: 'stopwatch', sets: 2, reps: 15, perSide: false, customName: 'Elevação de panturrilha' }
+      ];
+      const treinoB = (d) => [
+        { uid: `g${d}_b1`, exerciseId: 'reverse_lunge', prescription: '2 x 8 por perna', timerType: 'stopwatch', sets: 2, reps: 8, perSide: true },
+        { uid: `g${d}_b2`, exerciseId: 'wall_sit', prescription: '2 x 15–20 seg', timerType: 'countdown', seconds: 20, sets: 2, perSide: false },
+        { uid: `g${d}_b3`, exerciseId: 'bird_dog', prescription: '2 x 10 alternados', timerType: 'stopwatch', sets: 2, reps: 10, perSide: false, customName: 'Bird Dog' },
+        { uid: `g${d}_b4`, exerciseId: 'calf_raise', prescription: '2 x 15 repetições', timerType: 'stopwatch', sets: 2, reps: 15, perSide: false, customName: 'Elevação de panturrilha' }
+      ];
+      const treinoAbdomen = (d) => [
+        { uid: `g${d}_ab1`, exerciseId: 'dead_bug', prescription: '2 x 10 alternados', timerType: 'stopwatch', sets: 2, reps: 10, perSide: false, customName: 'Dead Bug' },
+        { uid: `g${d}_ab2`, exerciseId: 'plank_full', prescription: '2 x 15–20 seg', timerType: 'countdown', seconds: 20, sets: 2, perSide: false },
+        { uid: `g${d}_ab3`, exerciseId: 'bird_dog', prescription: '2 x 10 alternados', timerType: 'stopwatch', sets: 2, reps: 10, perSide: false, customName: 'Bird Dog' }
+      ];
+      const circuitoLeve = [
+        { uid: 'g15_c1', exerciseId: 'squat', prescription: '2 x 12 repetições', timerType: 'stopwatch', sets: 2, reps: 12, perSide: false },
+        { uid: 'g15_c2', exerciseId: 'stiff', prescription: '2 x 12 repetições', timerType: 'stopwatch', sets: 2, reps: 12, perSide: false },
+        { uid: 'g15_c3', exerciseId: 'calf_raise', prescription: '2 x 15 repetições', timerType: 'stopwatch', sets: 2, reps: 15, perSide: false, customName: 'Elevação de panturrilha' },
+        { uid: 'g15_c4', exerciseId: 'bird_dog', prescription: '2 x 10 alternados', timerType: 'stopwatch', sets: 2, reps: 10, perSide: false, customName: 'Bird Dog' },
+        { uid: 'g15_c5', exerciseId: 'plank_full', prescription: '2 x 15–20 seg', timerType: 'countdown', seconds: 20, sets: 2, perSide: false }
+      ];
+
+      return [
+        { id: 'dia01', shortName: 'Dia 01', name: 'Dia 01', focus: 'Esteira 20m + Pernas A', schedule: 'Treino A – Coxas e Glúteos (2 séries)', isRest: false, treadmill: makeTreadmill(1, 20), exercisesTitle: 'Treino A — Coxas e Fortalecimento dos Glúteos', exercisesDurationMin: 15, exercises: treinoA(1) },
+        { id: 'dia02', shortName: 'Dia 02', name: 'Dia 02', focus: 'Esteira 20m + Abdômen', schedule: 'Treino Abdominal (2 séries)', isRest: false, treadmill: makeTreadmill(2, 20), exercisesTitle: 'Treino Abdominal', exercisesDurationMin: 10, exercises: treinoAbdomen(2) },
+        { id: 'dia03', shortName: 'Dia 03', name: 'Dia 03', focus: 'Esteira 20m leve', schedule: 'Cardio Leve', isRest: false, treadmill: makeTreadmill(3, 20, true), exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia04', shortName: 'Dia 04', name: 'Dia 04', focus: 'Esteira 20m + Pernas B', schedule: 'Treino B – Coxas e Estabilidade (2 séries)', isRest: false, treadmill: makeTreadmill(4, 20), exercisesTitle: 'Treino B — Coxas e Estabilidade', exercisesDurationMin: 15, exercises: treinoB(4) },
+        { id: 'dia05', shortName: 'Dia 05', name: 'Dia 05', focus: 'Esteira 20m + Abdômen', schedule: 'Treino Abdominal (2 séries)', isRest: false, treadmill: makeTreadmill(5, 20), exercisesTitle: 'Treino Abdominal', exercisesDurationMin: 10, exercises: treinoAbdomen(5) },
+        { id: 'dia06', shortName: 'Dia 06', name: 'Dia 06', focus: 'Esteira 25 min', schedule: 'Cardio Moderado', isRest: false, treadmill: makeTreadmill(6, 25), exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia07', shortName: 'Dia 07', name: 'Dia 07', focus: 'Descanso', schedule: 'Recuperação Muscular', isRest: true, treadmill: null, exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia08', shortName: 'Dia 08', name: 'Dia 08', focus: 'Esteira 25m + Pernas A', schedule: 'Treino A – Coxas e Glúteos (2 séries)', isRest: false, treadmill: makeTreadmill(8, 25), exercisesTitle: 'Treino A — Coxas e Fortalecimento dos Glúteos', exercisesDurationMin: 15, exercises: treinoA(8) },
+        { id: 'dia09', shortName: 'Dia 09', name: 'Dia 09', focus: 'Esteira 25m + Abdômen', schedule: 'Treino Abdominal (2 séries)', isRest: false, treadmill: makeTreadmill(9, 25), exercisesTitle: 'Treino Abdominal', exercisesDurationMin: 10, exercises: treinoAbdomen(9) },
+        { id: 'dia10', shortName: 'Dia 10', name: 'Dia 10', focus: 'Esteira 25m leve', schedule: 'Cardio Leve', isRest: false, treadmill: makeTreadmill(10, 25, true), exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia11', shortName: 'Dia 11', name: 'Dia 11', focus: 'Esteira 25m + Pernas B', schedule: 'Treino B – Coxas e Estabilidade (2 séries)', isRest: false, treadmill: makeTreadmill(11, 25), exercisesTitle: 'Treino B — Coxas e Estabilidade', exercisesDurationMin: 15, exercises: treinoB(11) },
+        { id: 'dia12', shortName: 'Dia 12', name: 'Dia 12', focus: 'Esteira 25m + Abdômen', schedule: 'Treino Abdominal (2 séries)', isRest: false, treadmill: makeTreadmill(12, 25), exercisesTitle: 'Treino Abdominal', exercisesDurationMin: 10, exercises: treinoAbdomen(12) },
+        { id: 'dia13', shortName: 'Dia 13', name: 'Dia 13', focus: 'Esteira 30 min', schedule: 'Cardio Resistência', isRest: false, treadmill: makeTreadmill(13, 30), exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia14', shortName: 'Dia 14', name: 'Dia 14', focus: 'Descanso', schedule: 'Recuperação Muscular', isRest: true, treadmill: null, exercisesDurationMin: 0, exercises: [] },
+        { id: 'dia15', shortName: 'Dia 15', name: 'Dia 15', focus: 'Esteira 30m + Circuito', schedule: 'Finalização do Desafio 15 Dias', isRest: false, treadmill: makeTreadmill(15, 30), exercisesTitle: 'Circuito Leve', exercisesDurationMin: 15, exercises: circuitoLeve }
+      ];
+    })(),
+    objective: 'Emagrecer, fortalecer as coxas, manter os glúteos firmes e fortalecer o abdômen.',
+    tips: [
+      'Beba bastante água',
+      'Consuma proteínas nas refeições',
+      'Coma frutas, verduras e legumes',
+      'Reduza doces e refrigerantes',
+      'Durma bem',
+      'Respeite os dias de descanso'
+    ],
+    habits: [
+      'Mantenha uma alimentação equilibrada',
+      'Beba água ao longo do dia',
+      'Durma bem',
+      'Respeite seu corpo e seus limites'
+    ]
   }
 };

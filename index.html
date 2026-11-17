@@ -9,7 +9,7 @@
   <title>AppTreino 3D — Planilha Interativa de Treino &amp; Alongamento</title>
   <meta name="description" content="Aplicativo completo de treino semanal com demonstração interativa em 3D, cronômetros individuais por exercício e progressão na esteira." />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f172a'/%3E%3Cpath d='M16 32h8l5-14 8 28 5-14h6' fill='none' stroke='%2310b981' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=1.4" />
   <script type="importmap">
     {
       "imports": {
@@ -34,12 +34,12 @@
         <button class="profile-btn active" data-profile="marcos" type="button">
           <span class="dot"></span> Marcos
         </button>
-        <button class="profile-btn" data-profile="esposa" type="button">
-          Esposa <span class="badge-soon">Em breve</span>
+        <button class="profile-btn" data-profile="gabi" type="button">
+          <span class="dot"></span> Gabi
         </button>
       </div>
 
-      <div class="week-selector" role="group" aria-label="Semana de evolução da esteira">
+      <div id="week-selector" class="week-selector" role="group" aria-label="Semana de evolução da esteira">
         <span class="week-label">Esteira:</span>
         <button class="week-btn active" data-week="1" type="button">S1</button>
         <button class="week-btn" data-week="2" type="button">S2</button>
@@ -168,29 +168,32 @@
       <!-- Conteúdo dinâmico das seções do dia -->
       <div id="sections-container" class="sections-container"></div>
 
-      <!-- Cards de Evolução, Resumo da Semana e Dicas -->
+      <!-- Cards de Evolução, Resumo/Calendário, Dicas e Hábitos -->
       <div class="overview-grid">
-        <article class="info-card">
+        <article id="evolution-card" class="info-card">
           <div class="info-card-head">
-            <h3>📈 Evolução da Esteira (4 Semanas)</h3>
+            <h3 id="evolution-card-title">📈 Evolução da Esteira (4 Semanas)</h3>
             <span id="active-week-pill" class="mini-pill">Semana 1 ativa</span>
           </div>
-          <table class="evolution-table">
-            <thead>
-              <tr>
-                <th>Semana</th>
-                <th>Caminhada</th>
-                <th>Trote</th>
-              </tr>
-            </thead>
-            <tbody id="evolution-tbody"></tbody>
-          </table>
-          <p class="info-note">✅ Se estiver confortável, pode aumentar a inclinação (0–1%) na caminhada.</p>
+          <div id="evolution-marcos-body">
+            <table class="evolution-table">
+              <thead>
+                <tr>
+                  <th>Semana</th>
+                  <th>Caminhada</th>
+                  <th>Trote</th>
+                </tr>
+              </thead>
+              <tbody id="evolution-tbody"></tbody>
+            </table>
+            <p class="info-note">✅ Se estiver confortável, pode aumentar a inclinação (0–1%) na caminhada.</p>
+          </div>
+          <ul id="treadmill-guide-list" class="tips-list hidden"></ul>
         </article>
 
         <article class="info-card">
           <div class="info-card-head">
-            <h3>📋 Resumo da Semana</h3>
+            <h3 id="summary-card-title">📋 Resumo da Semana</h3>
             <span id="weekly-done-count" class="mini-pill">0/7 dias</span>
           </div>
           <ul id="weekly-summary-list" class="weekly-list"></ul>
@@ -200,8 +203,13 @@
         </article>
 
         <article class="info-card full-span">
-          <h3>💡 Dicas Importantes</h3>
+          <h3 id="tips-card-title">💡 Dicas Importantes</h3>
           <ul id="tips-list" class="tips-list"></ul>
+        </article>
+
+        <article id="habits-card" class="info-card full-span hidden">
+          <h3>✨ Hábitos que fazem a diferença</h3>
+          <ul id="habits-list" class="tips-list"></ul>
         </article>
       </div>
     </section>
@@ -222,6 +230,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=1.4"></script>
 </body>
 </html>

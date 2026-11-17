@@ -18,6 +18,13 @@
   --mobile-stage-h: 240px;
 }
 
+html[data-theme="rose"] {
+  --accent: #ec4899;
+  --accent-soft: rgba(236, 72, 153, 0.17);
+  --accent-strong: #f472b6;
+  --cyan: #c084fc;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -30,6 +37,8 @@ html, body {
   color: var(--text);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.45;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: clip;
@@ -393,14 +402,24 @@ button {
 .canvas-wrapper {
   position: relative;
   width: 100%;
+  max-width: 100%;
   height: 390px;
   background: #0c1322;
+  overflow: hidden;
 }
 
 .canvas-3d {
   width: 100%;
   height: 100%;
+  overflow: hidden;
   touch-action: none;
+}
+
+.canvas-3d canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
 }
 
 .model-loading-pill {
@@ -504,6 +523,13 @@ button {
   pointer-events: none;
 }
 
+.topbar,
+.day-nav,
+.workspace {
+  width: 100%;
+  max-width: 100%;
+}
+
 .viewport-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -514,6 +540,8 @@ button {
   background: var(--surface-2);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .cam-group,
@@ -1284,8 +1312,24 @@ button {
     gap: 14px;
   }
 
+  .stage-column,
+  .routine-column,
+  .stage-card,
+  .day-hero,
+  .section-card,
+  .overview-card,
+  .info-card {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .stage-column {
     position: static;
+  }
+
+  .stage-card {
+    overflow: hidden;
   }
 
   .canvas-wrapper {
@@ -1297,6 +1341,9 @@ button {
 @media (max-width: 768px) {
   .topbar {
     position: static;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
     padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
     gap: 8px;
   }
@@ -1317,6 +1364,8 @@ button {
 
   .topbar-controls {
     width: 100%;
+    max-width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 6px;
   }
@@ -1341,13 +1390,15 @@ button {
   }
 
   .day-nav {
+    width: 100%;
+    max-width: 100%;
     padding: 8px 12px;
     gap: 6px;
     -webkit-overflow-scrolling: touch;
   }
 
   .day-tab {
-    min-width: 100px;
+    min-width: 92px;
     padding: 7px 10px;
     border-radius: 10px;
   }
@@ -1357,8 +1408,22 @@ button {
   }
 
   .workspace {
+    width: 100%;
+    max-width: 100%;
     padding: 10px 10px calc(28px + env(safe-area-inset-bottom, 0px));
     gap: 12px;
+  }
+
+  .stage-column,
+  .routine-column,
+  .stage-card,
+  .day-hero,
+  .section-card,
+  .overview-card,
+  .info-card {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
   }
 
   .stage-column {
@@ -1369,6 +1434,7 @@ button {
 
   .stage-card {
     border-radius: 14px;
+    overflow: hidden;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   }
 
@@ -1376,9 +1442,24 @@ button {
     padding: 10px 12px;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stage-header > div:first-child {
+    min-width: 0;
+    flex: 1 1 170px;
+  }
+
+  .stage-header-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
   }
 
   .stage-badges {
+    flex-wrap: wrap;
+    max-width: 100%;
     margin-bottom: 3px;
     gap: 4px;
   }
@@ -1393,7 +1474,7 @@ button {
   .stage-header h2 {
     font-size: 1.0rem;
     line-height: 1.2;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .show-mobile {
@@ -1406,6 +1487,8 @@ button {
   }
 
   .canvas-wrapper {
+    width: 100%;
+    max-width: 100%;
     height: var(--mobile-stage-h, 235px);
   }
 
@@ -1443,22 +1526,26 @@ button {
   }
 
   .viewport-toolbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 7px 10px;
-    gap: 6px;
-  }
-
-  .viewport-toolbar::-webkit-scrollbar {
-    display: none;
+    gap: 5px 6px;
+    overflow: visible;
   }
 
   .cam-group,
   .playback-group {
-    flex-wrap: nowrap;
-    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .tool-btn {
@@ -1470,12 +1557,14 @@ button {
   .coaching-box {
     padding: 10px 12px 12px;
     gap: 8px;
+    min-width: 0;
   }
 
   .steps-list,
   .posture-tip,
   .muscle-row {
     font-size: 0.8rem;
+    overflow-wrap: anywhere;
   }
 
   .day-hero {
@@ -1483,12 +1572,20 @@ button {
     border-radius: 14px;
   }
 
+  .day-hero-top {
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
   .day-hero h2 {
     font-size: 1.08rem;
+    overflow-wrap: anywhere;
   }
 
   .day-hero-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .day-hero-actions .primary-btn {
@@ -1512,15 +1609,22 @@ button {
 
   .section-head {
     padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
   }
 
   .section-head h3 {
     font-size: 0.9rem;
+    min-width: 0;
+    flex: 1 1 150px;
+    overflow-wrap: anywhere;
   }
 
   .treadmill-controls-bar {
     padding: 8px 12px;
     gap: 6px;
+    flex-wrap: wrap;
   }
 
   .incline-group {
@@ -1530,18 +1634,29 @@ button {
     flex-wrap: wrap;
   }
 
-  /* Grid estrito: coluna esquerda encolhe o texto se precisar; coluna direita (cronômetro) NUNCA corta */
+  /* Card em 2 faixas no celular: título usa 100% da largura e cronômetro fica inteiro na linha inferior */
   .workout-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    padding: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    padding: 10px 12px;
     gap: 8px;
   }
 
   .row-main {
     min-width: 0;
+    width: 100%;
     gap: 9px;
+    align-items: flex-start;
+  }
+
+  .row-text {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .row-title-line {
+    flex-wrap: wrap;
   }
 
   .check-btn {
@@ -1552,9 +1667,9 @@ button {
   }
 
   .item-name {
-    font-size: 0.86rem;
+    font-size: 0.87rem;
     line-height: 1.25;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .item-rx {
@@ -1569,15 +1684,24 @@ button {
 
   .row-controls {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-    flex-shrink: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    padding-left: 37px;
+  }
+
+  .row-controls .side-toggle {
+    margin-right: auto;
   }
 
   .inline-timer {
-    padding: 3px 5px 3px 8px;
-    gap: 4px;
+    padding: 3px 6px 3px 9px;
+    gap: 5px;
+    max-width: 100%;
   }
 
   .timer-readout {
@@ -1594,6 +1718,12 @@ button {
   .side-chip {
     padding: 4px 8px;
     font-size: 0.71rem;
+  }
+
+  .overview-view {
+    padding: 12px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .overview-grid {
@@ -1633,11 +1763,28 @@ html[data-device="compact-mobile"] .metric-box.compact {
   justify-content: space-between;
 }
 
-/* Celular na horizontal (Paisagem): funciona independente da largura (667px..932px) */
+html[data-device="compact-mobile"] .row-controls {
+  padding-left: 0;
+}
+
+html[data-device="compact-mobile"] .plan-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Celular na horizontal (Paisagem): funciona independente da largura (568px..960px) */
 html[data-mobile-landscape="1"] .topbar {
   position: static;
-  padding: 6px 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  padding: 6px max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px));
   gap: 6px;
+}
+
+html[data-mobile-landscape="1"] .topbar-controls {
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
 }
 
 html[data-mobile-landscape="1"] .brand-sub,
@@ -1648,19 +1795,35 @@ html[data-mobile-landscape="1"] .canvas-hint {
 }
 
 html[data-mobile-landscape="1"] .day-nav {
-  padding: 6px 12px;
+  width: 100%;
+  max-width: 100%;
+  padding: 6px max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px));
   gap: 6px;
 }
 
 html[data-mobile-landscape="1"] .day-tab {
-  min-width: 96px;
+  min-width: 92px;
   padding: 6px 9px;
 }
 
 html[data-mobile-landscape="1"] .workspace {
+  width: 100%;
+  max-width: 100%;
   grid-template-columns: minmax(210px, 41%) minmax(0, 1fr);
   gap: 10px;
-  padding: 8px 12px 24px;
+  padding: 8px max(12px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+}
+
+html[data-mobile-landscape="1"] .stage-column,
+html[data-mobile-landscape="1"] .routine-column,
+html[data-mobile-landscape="1"] .stage-card,
+html[data-mobile-landscape="1"] .day-hero,
+html[data-mobile-landscape="1"] .section-card,
+html[data-mobile-landscape="1"] .overview-card,
+html[data-mobile-landscape="1"] .info-card {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 html[data-mobile-landscape="1"] .stage-column {
@@ -1669,13 +1832,32 @@ html[data-mobile-landscape="1"] .stage-column {
   z-index: 30;
 }
 
+html[data-mobile-landscape="1"] .stage-card {
+  overflow: hidden;
+}
+
 html[data-mobile-landscape="1"] .stage-header {
   padding: 8px 10px;
   gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+}
+
+html[data-mobile-landscape="1"] .stage-header > div:first-child {
+  min-width: 0;
+  flex: 1 1 130px;
+}
+
+html[data-mobile-landscape="1"] .stage-header-actions,
+html[data-mobile-landscape="1"] .stage-badges {
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 html[data-mobile-landscape="1"] .stage-header h2 {
   font-size: 0.94rem;
+  overflow-wrap: anywhere;
 }
 
 html[data-mobile-landscape="1"] .show-mobile {
@@ -1688,68 +1870,117 @@ html[data-mobile-landscape="1"] .mobile-collapsed {
 }
 
 html[data-mobile-landscape="1"] .canvas-wrapper {
+  width: 100%;
+  max-width: 100%;
   height: var(--mobile-stage-h, 200px);
 }
 
 html[data-mobile-landscape="1"] .viewport-toolbar {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 6px 8px;
-}
-
-html[data-mobile-landscape="1"] .viewport-toolbar::-webkit-scrollbar {
-  display: none;
+  gap: 4px 5px;
+  overflow: visible;
 }
 
 html[data-mobile-landscape="1"] .cam-group,
 html[data-mobile-landscape="1"] .playback-group {
-  flex-wrap: nowrap;
-  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 html[data-mobile-landscape="1"] .day-hero {
   padding: 10px 12px;
 }
 
+html[data-mobile-landscape="1"] .day-hero-top,
+html[data-mobile-landscape="1"] .section-head {
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+html[data-mobile-landscape="1"] .section-head h3 {
+  min-width: 0;
+  flex: 1 1 140px;
+  overflow-wrap: anywhere;
+}
+
 html[data-mobile-landscape="1"] .day-hero h2 {
   font-size: 1.02rem;
+  overflow-wrap: anywhere;
 }
 
 html[data-mobile-landscape="1"] .day-metrics {
-  grid-template-columns: minmax(0, 1fr) 105px;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, auto);
   gap: 8px;
 }
 
+html[data-mobile-landscape="1"] .metric-box,
+html[data-mobile-landscape="1"] .metric-box.compact {
+  min-width: 0;
+  padding: 7px 9px;
+}
+
+/* Paisagem: coluna direita (~58% da tela) também usa card em 2 faixas para nunca cortar o cronômetro */
 html[data-mobile-landscape="1"] .workout-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   padding: 9px 10px;
-  gap: 8px;
+  gap: 7px;
 }
 
 html[data-mobile-landscape="1"] .row-main {
   min-width: 0;
+  width: 100%;
   gap: 8px;
+  align-items: flex-start;
+}
+
+html[data-mobile-landscape="1"] .row-text {
+  min-width: 0;
+  flex: 1;
+}
+
+html[data-mobile-landscape="1"] .row-title-line {
+  flex-wrap: wrap;
 }
 
 html[data-mobile-landscape="1"] .item-name {
   font-size: 0.85rem;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 html[data-mobile-landscape="1"] .row-controls {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding-left: 34px;
+}
+
+html[data-mobile-landscape="1"] .row-controls .side-toggle {
+  margin-right: auto;
 }
 
 html[data-mobile-landscape="1"] .inline-timer {
   padding: 3px 5px 3px 8px;
   gap: 4px;
+  max-width: 100%;
 }
 
 html[data-mobile-landscape="1"] .timer-readout {
@@ -1760,6 +1991,10 @@ html[data-mobile-landscape="1"] .timer-readout {
 html[data-mobile-landscape="1"] .timer-btn {
   width: 28px;
   height: 28px;
+}
+
+html[data-mobile-landscape="1"] .overview-view {
+  padding: 10px max(12px, env(safe-area-inset-right, 0px)) 20px max(12px, env(safe-area-inset-left, 0px));
 }
 
 html[data-mobile-landscape="1"] .overview-grid,

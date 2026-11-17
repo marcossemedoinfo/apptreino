@@ -171,8 +171,8 @@ export class WorkoutScene3D {
     this.camera.position.set(...CAMERA_PRESETS.threeQuarter.pos);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setSize(w, h);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(w, h, false);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -380,6 +380,13 @@ export class WorkoutScene3D {
     wallGroup.visible = false;
     this.propsGroup.add(wallGroup);
     this.propWall = wallGroup;
+
+    // 2c. Parede traseira (Agachamento isométrico na parede - face em Z = -0.32)
+    const wallBackGroup = wallGroup.clone();
+    wallBackGroup.position.z = -1.09; // Move face Z=0.675 para Z=-0.415 (ou centro 0.72 -> -0.37)
+    wallBackGroup.visible = false;
+    this.propsGroup.add(wallBackGroup);
+    this.propWallBack = wallBackGroup;
 
     // 2b. Pilar lateral (Alongamento Peitoral: posicionado dinamicamente para encostar na palma)
     const postGroup = new THREE.Group();
@@ -789,6 +796,7 @@ export class WorkoutScene3D {
 
     this.propMat.visible = prop === 'mat';
     this.propWall.visible = prop === 'wall';
+    this.propWallBack.visible = prop === 'wall_back';
     this.propPost.visible = prop === 'doorframe';
     this.propChair.visible = prop === 'chair';
     this.propBench.visible = prop === 'bench';
@@ -1483,6 +1491,232 @@ export class WorkoutScene3D {
         break;
       }
 
+      case 'stiff': {
+        const d = smooth01(1.9);
+        const pitch = 0.78 * d;
+        const shiftZ = -0.10 * d;
+        const shiftY = -0.03 * d;
+        this.currentHipsOffset.set(0, shiftY, shiftZ);
+
+        const ik = solveLeg2BoneIK(this.seg.footZ - (this.seg.hipZ + shiftZ), this.seg.footH - (this.seg.hipY + shiftY), this.seg, pitch);
+        pose.Hips = [pitch, 0, 0];
+        pose.LeftUpLeg = [ik.hipRx, 0, 0.05];
+        pose.RightUpLeg = [ik.hipRx, 0, -0.05];
+        pose.LeftLeg = [ik.kneeRx, 0, 0];
+        pose.RightLeg = [ik.kneeRx, 0, 0];
+        pose.LeftFoot = [ik.footRx, 0, 0];
+        pose.RightFoot = [ik.footRx, 0, 0];
+
+        setSpineCurve(0.04 * d, 0, 0, -0.25 * d);
+        // Braços caem na vertical acompanhando a frente das coxas/canelas
+        pose.LeftArm = [-pitch, 0, -0.05];
+        pose.RightArm = [-pitch, 0, 0.05];
+        pose.LeftForeArm = [-0.08, 0, 0];
+        pose.RightForeArm = [-0.08, 0, 0];
+        this.emitPhaseCue(d > 0.55 ? 'Desça com a coluna reta levando o quadril atrás' : 'Suba contraindo os glúteos');
+        break;
+      }
+
+      case 'side_lying_leg_raise': {
+        const lift = smooth01(2.2);
+        const ang = 0.68 * lift;
+        if (!isLeft) {
+          // Deitada sobre o lado direito; perna esquerda (em cima) sobe e desce
+          pose.Hips = [0, 0, Math.PI / 2];
+          pose.LeftUpLeg = [0, 0, 0.05 + ang];
+          pose.RightUpLeg = [-0.15, 0, -0.04];
+          pose.RightLeg = [0.22, 0, 0];
+          pose.RightArm = [0, 0, 1.35];
+          pose.RightForeArm = [-1.4, 0, 0];
+          pose.LeftArm = [-0.45, 0, -0.18];
+          pose.LeftForeArm = [-0.95, 0, 0];
+          supportMarkers = [this.markers.sideAnkleR, this.markers.sideElbowR];
+          this.emitPhaseCue('Eleve a perna esquerda sem girar o quadril');
+        } else {
+          // Deitada sobre o lado esquerdo; perna direita (em cima) sobe e desce
+          pose.Hips = [0, 0, -Math.PI / 2];
+          pose.RightUpLeg = [0, 0, -0.05 - ang];
+          pose.LeftUpLeg = [-0.15, 0, 0.04];
+          pose.LeftLeg = [0.22, 0, 0];
+          pose.LeftArm = [0, 0, -1.35];
+          pose.LeftForeArm = [-1.4, 0, 0];
+          pose.RightArm = [-0.45, 0, 0.18];
+          pose.RightForeArm = [-0.95, 0, 0];
+          supportMarkers = [this.markers.sideAnkleL, this.markers.sideElbowL];
+          this.emitPhaseCue('Eleve a perna direita sem girar o quadril');
+        }
+        setSpineCurve(0, 0, 0, 0);
+        supportY = MAT_TOP_Y + 0.03;
+        break;
+      }
+
+      case 'reverse_lunge': {
+        const d = smooth01(2.0);
+        const fUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
+        const fKnee = isLeft ? 'LeftLeg' : 'RightLeg';
+        const fFoot = isLeft ? 'LeftFoot' : 'RightFoot';
+        const bUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
+        const bKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const bFoot = isLeft ? 'RightFoot' : 'LeftFoot';
+        const fMarkers = isLeft ? [this.markers.heelL, this.markers.toeL, this.markers.toeTipL] : [this.markers.heelR, this.markers.toeR, this.markers.toeTipR];
+
+        pose[fUp] = [-1.18 * d, 0, 0];
+        pose[fKnee] = [1.18 * d, 0, 0];
+        pose[fFoot] = [0, 0, 0];
+        pose[bUp] = [0.35 * d, 0, 0];
+        pose[bKnee] = [1.02 * d, 0, 0];
+        pose[bFoot] = [0.15 * d, 0, 0];
+        setSpineCurve(0.06 * d, 0, 0, -0.06 * d);
+        pose.LeftArm = [-0.35 * d, 0, 0.35];
+        pose.LeftForeArm = [-0.65, 0, -0.55];
+        pose.RightArm = [-0.35 * d, 0, -0.35];
+        pose.RightForeArm = [-0.65, 0, 0.55];
+        supportMarkers = fMarkers;
+        this.emitPhaseCue(d > 0.5 ? 'Passo para trás mantendo o tronco ereto' : 'Suba pelo calcanhar da frente');
+        break;
+      }
+
+      case 'wall_sit': {
+        // Costas apoiadas na parede traseira (Z = -0.32), coxas a 90° e pés firmes no chão
+        const shiftY = -0.36;
+        const shiftZ = -0.22;
+        this.currentHipsOffset.set(0, shiftY, shiftZ);
+        const ik = solveLeg2BoneIK((this.seg.footZ + 0.16) - (this.seg.hipZ + shiftZ), this.seg.footH - (this.seg.hipY + shiftY), this.seg, 0);
+
+        pose.LeftUpLeg = [ik.hipRx, 0, 0.08];
+        pose.RightUpLeg = [ik.hipRx, 0, -0.08];
+        pose.LeftLeg = [ik.kneeRx, 0, 0];
+        pose.RightLeg = [ik.kneeRx, 0, 0];
+        pose.LeftFoot = [ik.footRx, 0, 0];
+        pose.RightFoot = [ik.footRx, 0, 0];
+        setSpineCurve(0, 0, 0, 0);
+        pose.LeftArm = [-0.08, 0, 0.14];
+        pose.RightArm = [-0.08, 0, -0.14];
+        pose.LeftForeArm = [-0.2, 0, 0];
+        pose.RightForeArm = [-0.2, 0, 0];
+        this.emitPhaseCue('Costas coladas na parede • Joelhos a ~90°');
+        break;
+      }
+
+      case 'plank_full': {
+        // Prancha completa nos cotovelos/antebraços + pontas dos pés (alpha = 0.14 rad)
+        const alpha = 0.14;
+        pose.Hips = [Math.PI / 2 - alpha + breath * 0.008, 0, 0];
+        setSpineCurve(0, 0, 0, -0.34);
+
+        pose.LeftArm = [-(Math.PI / 2 - alpha), 0, -0.06];
+        pose.RightArm = [-(Math.PI / 2 - alpha), 0, 0.06];
+        pose.LeftForeArm = [-Math.PI / 2, -0.42, 0];
+        pose.RightForeArm = [-Math.PI / 2, 0.42, 0];
+        pose.LeftUpLeg = [0, 0, 0.04];
+        pose.RightUpLeg = [0, 0, -0.04];
+        pose.LeftFoot = [0.55, 0, 0];
+        pose.RightFoot = [0.55, 0, 0];
+
+        supportY = MAT_TOP_Y;
+        supportMarkers = [this.markers.elbowBotL, this.markers.elbowBotR, this.markers.toeTipL, this.markers.toeTipR];
+        this.emitPhaseCue('Prancha completa • Corpo alinhado da cabeça aos pés');
+        break;
+      }
+
+      case 'seated_hamstring_stretch': {
+        // Sentada no tapete com 1 perna estendida à frente e outra dobrada para dentro
+        const pulse = 0.03 * breath;
+        const extUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
+        const extKnee = isLeft ? 'LeftLeg' : 'RightLeg';
+        const extFoot = isLeft ? 'LeftFoot' : 'RightFoot';
+        const bentUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
+        const bentKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+
+        pose[extUp] = [-Math.PI / 2, 0, 0];
+        pose[extKnee] = [0.04, 0, 0];
+        pose[extFoot] = [-0.35, 0, 0];
+
+        pose[bentUp] = [-1.42, -sgn * 0.45, -sgn * 0.55];
+        pose[bentKnee] = [1.95, 0, 0];
+
+        setSpineCurve(0.56 + pulse, 0, 0, -0.25);
+        pose.LeftArm = [-1.45, 0, -0.06];
+        pose.RightArm = [-1.45, 0, 0.06];
+        pose.LeftForeArm = [-0.08, 0, 0];
+        pose.RightForeArm = [-0.08, 0, 0];
+        supportY = MAT_TOP_Y;
+        supportMarkers = [this.markers.backPelvis, this.markers.heelL, this.markers.heelR];
+        this.emitPhaseCue('Sentada no tapete • Alcance o pé da perna estendida');
+        break;
+      }
+
+      case 'seated_glute_hug': {
+        // Sentada no tapete abraçando os dois joelhos junto ao peito
+        const pulse = 0.025 * breath;
+        pose.Hips = [-0.14, 0, 0];
+        pose.LeftUpLeg = [-2.02 - pulse, 0, 0.08];
+        pose.RightUpLeg = [-2.02 - pulse, 0, -0.08];
+        pose.LeftLeg = [1.98, 0, 0];
+        pose.RightLeg = [1.98, 0, 0];
+        pose.LeftFoot = [0.18, 0, 0];
+        pose.RightFoot = [0.18, 0, 0];
+
+        setSpineCurve(0.18, 0, 0, -0.1);
+        pose.LeftArm = [-0.95, 0, 0.14];
+        pose.RightArm = [-0.95, 0, -0.14];
+        pose.LeftForeArm = [-1.15, 0, -0.62];
+        pose.RightForeArm = [-1.15, 0, 0.62];
+        supportY = MAT_TOP_Y;
+        supportMarkers = [this.markers.backPelvis, this.markers.heelL, this.markers.heelR];
+        this.emitPhaseCue('Sentada no tapete • Abrace os joelhos suavemente');
+        break;
+      }
+
+      case 'wall_calf_stretch': {
+        // Alongamento de panturrilha apoiando as duas mãos na parede à frente
+        const pulse = 0.02 * breath;
+        const bUp = isLeft ? 'LeftUpLeg' : 'RightUpLeg';
+        const bKnee = isLeft ? 'LeftLeg' : 'RightLeg';
+        const bFoot = isLeft ? 'LeftFoot' : 'RightFoot';
+        const fUp = isLeft ? 'RightUpLeg' : 'LeftUpLeg';
+        const fKnee = isLeft ? 'RightLeg' : 'LeftLeg';
+        const fFoot = isLeft ? 'RightFoot' : 'LeftFoot';
+
+        this.charRoot.position.z = 0.14;
+        pose[fUp] = [-0.62 - pulse, 0, 0];
+        pose[fKnee] = [0.85 + pulse, 0, 0];
+        pose[fFoot] = [-0.23, 0, 0];
+        pose[bUp] = [0.42, 0, 0];
+        pose[bKnee] = [0.04, 0, 0];
+        pose[bFoot] = [-0.46, 0, 0];
+
+        setSpineCurve(0.16, 0, 0, -0.12);
+        const armIK = solveArm2BoneIK(0.42, -0.06, this.seg, 0.16);
+        pose.LeftArm = [armIK.armRx, 0, 0.06];
+        pose.RightArm = [armIK.armRx, 0, -0.06];
+        pose.LeftForeArm = [armIK.foreRx, -1.1, 0];
+        pose.RightForeArm = [armIK.foreRx, 1.1, 0];
+        pose.LeftHand = [-0.65, 0, 0];
+        pose.RightHand = [-0.65, 0, 0];
+        this.emitPhaseCue('Mãos na parede • Calcanhar de trás firme no chão');
+        break;
+      }
+
+      case 'shoulder_cross_stretch': {
+        const pulse = 0.025 * breath;
+        const arm = isLeft ? 'LeftArm' : 'RightArm';
+        const fore = isLeft ? 'LeftForeArm' : 'RightForeArm';
+        const oppArm = isLeft ? 'RightArm' : 'LeftArm';
+        const oppFore = isLeft ? 'RightForeArm' : 'LeftForeArm';
+
+        // Braço cruza horizontalmente na frente do peito; outro braço puxa suavemente pelo cotovelo
+        pose[arm] = [-1.45, sgn * (0.98 + pulse), 0];
+        pose[fore] = [-0.08, 0, 0];
+        pose[oppArm] = [-0.92, -sgn * 0.25, -sgn * 0.18];
+        pose[oppFore] = [-1.32, 0, sgn * 0.45];
+        pose.LeftUpLeg = [0, 0, 0.06];
+        pose.RightUpLeg = [0, 0, -0.06];
+        setSpineCurve(0, 0, 0, 0);
+        this.emitPhaseCue(isLeft ? 'Alongue o ombro esquerdo' : 'Alongue o ombro direito');
+        break;
+      }
+
       case 'rest_day':
       default: {
         pose.LeftArm = [0, 0, 0.12 + 0.025 * breath];
@@ -1587,7 +1821,7 @@ export class WorkoutScene3D {
       this.camera.fov = aspect < 1.15 ? 45 : (aspect > 1.85 ? 36 : 39);
       this.camera.updateProjectionMatrix();
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.renderer.setSize(w, h);
+      this.renderer.setSize(w, h, false);
     }
   }
 

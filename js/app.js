@@ -1,7 +1,7 @@
-import { EXERCISE_CATALOG, PROFILES } from './data.js';
-import { sound } from './audio.js';
-import { TimerManager, formatStopwatch } from './timers.js';
-import { WorkoutScene3D } from './scene3d.js';
+import { EXERCISE_CATALOG, PROFILES } from './data.js?v=1.4';
+import { sound } from './audio.js?v=1.4';
+import { TimerManager, formatStopwatch } from './timers.js?v=1.4';
+import { WorkoutScene3D } from './scene3d.js?v=1.4';
 
 const CATEGORY_LABELS = {
   aquecimento: 'Aquecimento Dinâmico',
@@ -28,9 +28,12 @@ class AppTreino {
     this.manualDaysDone = this.timers.getMeta('manualDaysDone', {});
 
     const todayWeekday = new Date().getDay(); // 0=Dom .. 6=Sab
-    const profile = this.getProfile();
-    const todayDay = profile.days?.find(d => d.weekdayIndex === todayWeekday) || profile.days?.[0];
-    this.activeDayId = todayDay ? todayDay.id : 'segunda';
+    const marcosToday = PROFILES.marcos.days?.find(d => d.weekdayIndex === todayWeekday)?.id || 'segunda';
+    this.activeDayByProfile = {
+      marcos: marcosToday,
+      gabi: 'dia01'
+    };
+    this.activeDayId = this.activeDayByProfile[this.profileId] || this.getProfile().days[0].id;
     this.selectedItemKey = null;
     this.dayItemsIndex = []; // ordered list of { key, section, title, prescription, exerciseId, speedKmh, itemConfig }
 
@@ -69,11 +72,19 @@ class AppTreino {
       dayTotalTime: document.getElementById('day-total-time'),
       sectionsContainer: document.getElementById('sections-container'),
       evolutionTbody: document.getElementById('evolution-tbody'),
+      evolutionCardTitle: document.getElementById('evolution-card-title'),
+      evolutionMarcosBody: document.getElementById('evolution-marcos-body'),
+      treadmillGuideList: document.getElementById('treadmill-guide-list'),
       activeWeekPill: document.getElementById('active-week-pill'),
+      summaryCardTitle: document.getElementById('summary-card-title'),
       weeklyDoneCount: document.getElementById('weekly-done-count'),
       weeklySummaryList: document.getElementById('weekly-summary-list'),
       profileObjective: document.getElementById('profile-objective'),
+      tipsCardTitle: document.getElementById('tips-card-title'),
       tipsList: document.getElementById('tips-list'),
+      habitsCard: document.getElementById('habits-card'),
+      habitsList: document.getElementById('habits-list'),
+      weekSelector: document.getElementById('week-selector'),
       btnMute: document.getElementById('btn-mute'),
       btn3dPlay: document.getElementById('btn-3d-play'),
       btnAutoRotate: document.getElementById('btn-auto-rotate'),
@@ -194,6 +205,8 @@ class AppTreino {
       btn.addEventListener('click', () => {
         this.profileId = btn.dataset.profile;
         this.timers.setMeta('activeProfile', this.profileId);
+        this.activeDayId = this.activeDayByProfile[this.profileId] || this.getProfile().days[0].id;
+        this.selectedItemKey = null;
         this.renderAll();
       });
     });
@@ -328,12 +341,18 @@ class AppTreino {
 
   renderAll() {
     const profile = this.getProfile();
+    document.documentElement.dataset.theme = profile.theme || 'emerald';
+    if (!profile.days.some(d => d.id === this.activeDayId)) {
+      this.activeDayId = profile.days[0].id;
+    }
+
     document.querySelectorAll('.profile-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.profile === this.profileId);
     });
     document.querySelectorAll('.week-btn').forEach(btn => {
       btn.classList.toggle('active', Number(btn.dataset.week) === this.activeWeek);
     });
+    this.dom.weekSelector?.classList.toggle('hidden', !profile.treadmillProgression);
     this.updateMuteBtn();
 
     this.dom.profileTagline.textContent = profile.subtitle;
@@ -380,6 +399,7 @@ class AppTreino {
       `;
       btn.addEventListener('click', () => {
         this.activeDayId = day.id;
+        this.activeDayByProfile[this.profileId] = day.id;
         this.selectedItemKey = null;
         this.renderDayNav();
         this.renderDaySections();
@@ -394,17 +414,19 @@ class AppTreino {
     const list = [];
     if (day.isRest) return list;
 
-    for (const item of profile.warmup.items) {
-      const key = this.makeItemKey(day.id, 'warmup', item.uid);
-      this.timers.registerItem(key, item);
-      list.push({
-        key,
-        section: 'warmup',
-        exerciseId: item.exerciseId,
-        title: EXERCISE_CATALOG[item.exerciseId].name,
-        prescription: item.prescription,
-        config: item
-      });
+    if (profile.warmup?.items) {
+      for (const item of profile.warmup.items) {
+        const key = this.makeItemKey(day.id, 'warmup', item.uid);
+        this.timers.registerItem(key, item);
+        list.push({
+          key,
+          section: 'warmup',
+          exerciseId: item.exerciseId,
+          title: EXERCISE_CATALOG[item.exerciseId].name,
+          prescription: item.prescription,
+          config: item
+        });
+      }
     }
 
     if (day.treadmill) {
@@ -424,30 +446,34 @@ class AppTreino {
       }
     }
 
-    for (const ex of day.exercises) {
-      const key = this.makeItemKey(day.id, 'exercicio', ex.uid);
-      this.timers.registerItem(key, ex);
-      list.push({
-        key,
-        section: 'exercicio',
-        exerciseId: ex.exerciseId,
-        title: ex.customName || EXERCISE_CATALOG[ex.exerciseId].name,
-        prescription: ex.prescription,
-        config: ex
-      });
+    if (day.exercises?.length) {
+      for (const ex of day.exercises) {
+        const key = this.makeItemKey(day.id, 'exercicio', ex.uid);
+        this.timers.registerItem(key, ex);
+        list.push({
+          key,
+          section: 'exercicio',
+          exerciseId: ex.exerciseId,
+          title: ex.customName || EXERCISE_CATALOG[ex.exerciseId].name,
+          prescription: ex.prescription,
+          config: ex
+        });
+      }
     }
 
-    for (const item of profile.cooldown.items) {
-      const key = this.makeItemKey(day.id, 'cooldown', item.uid);
-      this.timers.registerItem(key, item);
-      list.push({
-        key,
-        section: 'cooldown',
-        exerciseId: item.exerciseId,
-        title: EXERCISE_CATALOG[item.exerciseId].name,
-        prescription: item.prescription,
-        config: item
-      });
+    if (profile.cooldown?.items) {
+      for (const item of profile.cooldown.items) {
+        const key = this.makeItemKey(day.id, 'cooldown', item.uid);
+        this.timers.registerItem(key, item);
+        list.push({
+          key,
+          section: 'cooldown',
+          exerciseId: item.exerciseId,
+          title: EXERCISE_CATALOG[item.exerciseId].name,
+          prescription: item.prescription,
+          config: item
+        });
+      }
     }
 
     return list;
@@ -504,40 +530,48 @@ class AppTreino {
       return;
     }
 
+    let stepCounter = 1;
+
     // 1. Alongamento Dinâmico (Aquecimento)
-    this.dom.sectionsContainer.appendChild(
-      this.createWorkoutSection({
-        step: '1',
-        title: profile.warmup.title,
-        durationLabel: profile.warmup.durationLabel,
-        items: this.dayItemsIndex.filter(i => i.section === 'warmup')
-      })
-    );
+    if (profile.warmup?.items?.length) {
+      this.dom.sectionsContainer.appendChild(
+        this.createWorkoutSection({
+          step: String(stepCounter++),
+          title: profile.warmup.title,
+          durationLabel: profile.warmup.durationLabel,
+          items: this.dayItemsIndex.filter(i => i.section === 'warmup')
+        })
+      );
+    }
 
     // 2. Esteira
     if (day.treadmill) {
-      this.dom.sectionsContainer.appendChild(this.createTreadmillSection(day));
+      this.dom.sectionsContainer.appendChild(this.createTreadmillSection(day, String(stepCounter++)));
     }
 
     // 3. Exercícios do Dia
-    this.dom.sectionsContainer.appendChild(
-      this.createWorkoutSection({
-        step: '3',
-        title: `Exercícios — ${day.focus}`,
-        durationLabel: `${day.exercisesDurationMin} min`,
-        items: this.dayItemsIndex.filter(i => i.section === 'exercicio')
-      })
-    );
+    if (day.exercises?.length) {
+      this.dom.sectionsContainer.appendChild(
+        this.createWorkoutSection({
+          step: String(stepCounter++),
+          title: day.exercisesTitle || `Exercícios — ${day.focus}`,
+          durationLabel: `${day.exercisesDurationMin} min`,
+          items: this.dayItemsIndex.filter(i => i.section === 'exercicio')
+        })
+      );
+    }
 
     // 4. Alongamento Depois do Treino
-    this.dom.sectionsContainer.appendChild(
-      this.createWorkoutSection({
-        step: '4',
-        title: profile.cooldown.title,
-        durationLabel: profile.cooldown.durationLabel,
-        items: this.dayItemsIndex.filter(i => i.section === 'cooldown')
-      })
-    );
+    if (profile.cooldown?.items?.length) {
+      this.dom.sectionsContainer.appendChild(
+        this.createWorkoutSection({
+          step: String(stepCounter++),
+          title: profile.cooldown.title,
+          durationLabel: profile.cooldown.durationLabel,
+          items: this.dayItemsIndex.filter(i => i.section === 'cooldown')
+        })
+      );
+    }
 
     this.updateDaySummaryUI();
   }
@@ -567,7 +601,8 @@ class AppTreino {
     return card;
   }
 
-  createTreadmillSection(day) {
+  createTreadmillSection(day, stepNum = '2') {
+    const profile = this.getProfile();
     const card = document.createElement('article');
     card.className = 'section-card';
     const stagesSum = day.treadmill.stages.reduce((acc, s) => acc + s.minutes, 0);
@@ -579,7 +614,7 @@ class AppTreino {
     head.className = 'section-head';
     head.innerHTML = `
       <div class="section-title-wrap">
-        <span class="section-step">2</span>
+        <span class="section-step">${stepNum}</span>
         <h3>Esteira — Etapas e Velocidade</h3>
       </div>
       <span class="section-duration">${labelDuration}</span>
@@ -589,10 +624,13 @@ class AppTreino {
     // Barra de evolução e inclinação da esteira
     const bar = document.createElement('div');
     bar.className = 'treadmill-controls-bar';
+    const progHtml = profile.treadmillProgression
+      ? `<button type="button" class="pill-toggle ${this.applyWeekProgression ? 'active' : ''}" data-action="toggle-prog">
+          ${this.applyWeekProgression ? `✓ Evolução Semana ${this.activeWeek} aplicada` : `Aplicar Evolução (Sem ${this.activeWeek})`}
+        </button>`
+      : '';
     bar.innerHTML = `
-      <button type="button" class="pill-toggle ${this.applyWeekProgression ? 'active' : ''}" data-action="toggle-prog">
-        ${this.applyWeekProgression ? `✓ Evolução Semana ${this.activeWeek} aplicada` : `Aplicar Evolução (Sem ${this.activeWeek})`}
-      </button>
+      ${progHtml}
       <button type="button" class="pill-toggle ${this.autoAdvanceTreadmill ? 'active' : ''}" data-action="toggle-auto-tm">
         ${this.autoAdvanceTreadmill ? '✓ Auto-próxima etapa' : 'Auto-próxima etapa'}
       </button>
@@ -604,7 +642,7 @@ class AppTreino {
       </div>
     `;
 
-    bar.querySelector('[data-action="toggle-prog"]').addEventListener('click', () => {
+    bar.querySelector('[data-action="toggle-prog"]')?.addEventListener('click', () => {
       this.applyWeekProgression = !this.applyWeekProgression;
       this.timers.setMeta('applyWeekProgression', this.applyWeekProgression);
       this.renderDaySections();
@@ -961,21 +999,33 @@ class AppTreino {
     const profile = this.getProfile();
     if (!profile.ready) return;
 
-    this.dom.activeWeekPill.textContent = `Semana ${this.activeWeek} ativa`;
-    this.dom.evolutionTbody.innerHTML = '';
+    if (profile.treadmillProgression) {
+      this.dom.evolutionCardTitle.textContent = '📈 Evolução da Esteira (4 Semanas)';
+      this.dom.activeWeekPill.classList.remove('hidden');
+      this.dom.activeWeekPill.textContent = `Semana ${this.activeWeek} ativa`;
+      this.dom.evolutionMarcosBody.classList.remove('hidden');
+      this.dom.treadmillGuideList.classList.add('hidden');
+      this.dom.evolutionTbody.innerHTML = '';
 
-    for (const row of profile.treadmillProgression) {
-      const tr = document.createElement('tr');
-      tr.className = row.week === this.activeWeek ? 'active-week' : '';
-      tr.innerHTML = `
-        <td>${row.label}</td>
-        <td>${this.formatSpeed(row.walkSpeed)}</td>
-        <td>${this.formatSpeed(row.jogSpeed)}</td>
-      `;
-      tr.addEventListener('click', () => {
-        this.setActiveWeek(row.week);
-      });
-      this.dom.evolutionTbody.appendChild(tr);
+      for (const row of profile.treadmillProgression) {
+        const tr = document.createElement('tr');
+        tr.className = row.week === this.activeWeek ? 'active-week' : '';
+        tr.innerHTML = `
+          <td>${row.label}</td>
+          <td>${this.formatSpeed(row.walkSpeed)}</td>
+          <td>${this.formatSpeed(row.jogSpeed)}</td>
+        `;
+        tr.addEventListener('click', () => {
+          this.setActiveWeek(row.week);
+        });
+        this.dom.evolutionTbody.appendChild(tr);
+      }
+    } else if (profile.treadmillGuide) {
+      this.dom.evolutionCardTitle.textContent = '🏃‍♀️ Como fazer a esteira?';
+      this.dom.activeWeekPill.classList.add('hidden');
+      this.dom.evolutionMarcosBody.classList.add('hidden');
+      this.dom.treadmillGuideList.classList.remove('hidden');
+      this.dom.treadmillGuideList.innerHTML = profile.treadmillGuide.map(g => `<li>${g}</li>`).join('');
     }
   }
 
@@ -983,6 +1033,7 @@ class AppTreino {
     const profile = this.getProfile();
     if (!profile.ready) return;
 
+    this.dom.summaryCardTitle.textContent = profile.days.length === 15 ? '📅 Calendário dos Treinos (15 Dias)' : '📋 Resumo da Semana';
     this.dom.weeklySummaryList.innerHTML = '';
     let completedDays = 0;
 
@@ -997,6 +1048,7 @@ class AppTreino {
       `;
       li.addEventListener('click', () => {
         this.activeDayId = day.id;
+        this.activeDayByProfile[this.profileId] = day.id;
         this.selectedItemKey = null;
         this.renderDayNav();
         this.renderDaySections();
@@ -1006,14 +1058,22 @@ class AppTreino {
       this.dom.weeklySummaryList.appendChild(li);
     }
 
-    this.dom.weeklyDoneCount.textContent = `${completedDays}/7 dias`;
+    this.dom.weeklyDoneCount.textContent = `${completedDays}/${profile.days.length} dias`;
     this.dom.profileObjective.textContent = profile.objective;
   }
 
   renderTips() {
     const profile = this.getProfile();
     if (!profile.ready) return;
+    this.dom.tipsCardTitle.textContent = profile.id === 'gabi' ? '✨ Dicas de Ouro' : '💡 Dicas Importantes';
     this.dom.tipsList.innerHTML = profile.tips.map(t => `<li>${t}</li>`).join('');
+
+    if (profile.habits?.length) {
+      this.dom.habitsCard?.classList.remove('hidden');
+      this.dom.habitsList.innerHTML = profile.habits.map(h => `<li>${h}</li>`).join('');
+    } else {
+      this.dom.habitsCard?.classList.add('hidden');
+    }
   }
 
   showToast(message) {
