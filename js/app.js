@@ -35,6 +35,7 @@ class AppTreino {
     this.dayItemsIndex = []; // ordered list of { key, section, title, prescription, exerciseId, speedKmh, itemConfig }
 
     this.cacheDom();
+    this.setupAdaptiveViewport();
     this.init3D();
     this.bindGlobalEvents();
     this.renderAll();
@@ -80,8 +81,65 @@ class AppTreino {
       btnGuidedNext: document.getElementById('btn-guided-next'),
       btnResetDay: document.getElementById('btn-reset-day'),
       btnBackMarcos: document.getElementById('btn-back-marcos'),
+      btnToggle3d: document.getElementById('btn-toggle-3d'),
+      btnToggleSteps: document.getElementById('btn-toggle-steps'),
+      stageBody3d: document.getElementById('stage-body-3d'),
+      coachingBox: document.getElementById('coaching-box'),
       toast: document.getElementById('toast')
     };
+  }
+
+  setupAdaptiveViewport() {
+    this.mobile3dOpen = true;
+    this.mobileStepsOpen = false;
+
+    const update = () => {
+      const vv = window.visualViewport;
+      const w = Math.round(vv ? vv.width : window.innerWidth);
+      const h = Math.round(vv ? vv.height : window.innerHeight);
+      const rootEl = document.documentElement;
+
+      rootEl.style.setProperty('--app-vw', `${w}px`);
+      rootEl.style.setProperty('--app-vh', `${h}px`);
+
+      const isLandscape = w > h;
+      let device = 'desktop';
+      if (w <= 375) device = 'compact-mobile';
+      else if (w <= 480) device = 'mobile';
+      else if (w <= 768) device = 'large-mobile';
+      else if (w <= 1080) device = 'tablet';
+
+      rootEl.dataset.device = device;
+      rootEl.dataset.orientation = isLandscape ? 'landscape' : 'portrait';
+      rootEl.dataset.mobileLandscape = (isLandscape && h <= 540 && w <= 960) ? '1' : '0';
+
+      // Altura do palco 3D calculada proporcionalmente para a tela exata de cada aparelho
+      let stageH = 390;
+      if (rootEl.dataset.mobileLandscape === '1') {
+        stageH = Math.max(170, Math.min(260, h - 145));
+      } else if (w <= 768) {
+        stageH = Math.round(Math.max(195, Math.min(310, h * 0.31)));
+      } else if (w <= 1080) {
+        stageH = Math.round(Math.max(260, Math.min(360, h * 0.36)));
+      }
+      rootEl.style.setProperty('--mobile-stage-h', `${stageH}px`);
+
+      // Em telas desktop/tablet mostra dicas sempre; no celular começa recolhido para sobrar mais lista
+      if (w > 768) {
+        this.dom.coachingBox?.classList.remove('mobile-collapsed');
+        this.dom.stageBody3d?.classList.remove('mobile-collapsed');
+      } else {
+        this.dom.coachingBox?.classList.toggle('mobile-collapsed', !this.mobileStepsOpen);
+        this.dom.stageBody3d?.classList.toggle('mobile-collapsed', !this.mobile3dOpen);
+      }
+
+      this.scene3d?.resize();
+    };
+
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', () => setTimeout(update, 120));
+    window.visualViewport?.addEventListener('resize', update);
   }
 
   init3D() {
@@ -191,6 +249,23 @@ class AppTreino {
       const next = !this.scene3d.highlightMuscles;
       this.scene3d.setHighlightMuscles(next);
       this.dom.btnMuscleHl.classList.toggle('active', next);
+    });
+
+    this.dom.btnToggle3d?.addEventListener('click', () => {
+      this.mobile3dOpen = !this.mobile3dOpen;
+      this.dom.stageBody3d?.classList.toggle('mobile-collapsed', !this.mobile3dOpen);
+      this.dom.btnToggle3d.textContent = this.mobile3dOpen ? '▾ 3D' : '▸ 3D';
+      this.dom.btnToggle3d.setAttribute('aria-expanded', String(this.mobile3dOpen));
+      if (this.mobile3dOpen) {
+        requestAnimationFrame(() => this.scene3d?.resize());
+      }
+    });
+
+    this.dom.btnToggleSteps?.addEventListener('click', () => {
+      this.mobileStepsOpen = !this.mobileStepsOpen;
+      this.dom.coachingBox?.classList.toggle('mobile-collapsed', !this.mobileStepsOpen);
+      this.dom.btnToggleSteps.classList.toggle('active', this.mobileStepsOpen);
+      this.dom.btnToggleSteps.setAttribute('aria-expanded', String(this.mobileStepsOpen));
     });
 
     this.dom.stageSideToggle.querySelectorAll('.side-btn').forEach(btn => {
@@ -684,6 +759,15 @@ class AppTreino {
     if (!item) return;
 
     this.selectedItemKey = key;
+    if (!this.mobile3dOpen && window.innerWidth <= 768) {
+      this.mobile3dOpen = true;
+      this.dom.stageBody3d?.classList.remove('mobile-collapsed');
+      if (this.dom.btnToggle3d) {
+        this.dom.btnToggle3d.textContent = '▾ 3D';
+        this.dom.btnToggle3d.setAttribute('aria-expanded', 'true');
+      }
+      requestAnimationFrame(() => this.scene3d?.resize());
+    }
     document.querySelectorAll('.workout-row').forEach(r => {
       r.classList.toggle('selected', r.dataset.itemKey === key);
     });

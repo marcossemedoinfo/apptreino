@@ -1576,17 +1576,23 @@ export class WorkoutScene3D {
     this.renderer.render(this.scene, this.camera);
   }
 
+  resize() {
+    if (this.disposed) return;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (w > 0 && h > 0) {
+      const aspect = w / h;
+      this.camera.aspect = aspect;
+      // Adapta o FOV automaticamente em telas estreitas ou muito baixas para nunca cortar os braços/equipamentos
+      this.camera.fov = aspect < 1.15 ? 45 : (aspect > 1.85 ? 36 : 39);
+      this.camera.updateProjectionMatrix();
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      this.renderer.setSize(w, h);
+    }
+  }
+
   bindResize() {
-    this.resizeObserver = new ResizeObserver(() => {
-      if (this.disposed) return;
-      const w = this.container.clientWidth;
-      const h = this.container.clientHeight;
-      if (w > 0 && h > 0) {
-        this.camera.aspect = w / h;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(w, h);
-      }
-    });
+    this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.container);
   }
 
