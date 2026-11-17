@@ -47,6 +47,7 @@ class AppTreino {
       workspace: document.getElementById('main-workspace'),
       placeholder: document.getElementById('profile-placeholder'),
       canvasContainer: document.getElementById('canvas-3d'),
+      modelLoadingPill: document.getElementById('model-loading-pill'),
       activeCatBadge: document.getElementById('active-category-badge'),
       activeRxBadge: document.getElementById('active-prescription-badge'),
       activeTmBadge: document.getElementById('active-treadmill-badge'),
@@ -88,6 +89,14 @@ class AppTreino {
       onPhaseChange: (text) => {
         if (this.dom.stagePhaseCue) {
           this.dom.stagePhaseCue.textContent = text;
+        }
+      },
+      onModelStatus: (status) => {
+        if (!this.dom.modelLoadingPill) return;
+        if (status === 'ready') {
+          this.dom.modelLoadingPill.classList.add('hidden');
+        } else if (status === 'error') {
+          this.dom.modelLoadingPill.textContent = 'Erro ao carregar modelo 3D (verifique conexão/servidor)';
         }
       }
     });
